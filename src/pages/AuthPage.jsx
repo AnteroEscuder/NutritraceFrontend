@@ -1,5 +1,17 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Container,
+  Tab,
+  Tabs,
+  TextField,
+  Typography,
+} from "@mui/material";
 import { registerUser } from "../api";
 import { useAuth } from "../context/AuthContext";
 
@@ -7,109 +19,119 @@ export default function AuthPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const [authMode, setAuthMode] = useState("login"); // "login" | "register"
-  const [authForm, setAuthForm] = useState({
-    name: "",
-    email: "",
-    password: "",
-  });
+  const [mode, setMode] = useState("login"); // login | register
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [ok, setOk] = useState("");
 
-  const handleChangeAuth = (field, value) => {
-    setAuthForm((prev) => ({ ...prev, [field]: value }));
-  };
+  const title = useMemo(
+    () => (mode === "login" ? "Iniciar sesión" : "Crear cuenta"),
+    [mode]
+  );
 
-  const handleSubmitAuth = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    setMessage("");
+    setOk("");
     try {
       setLoading(true);
 
-      if (authMode === "register") {
-        await registerUser(authForm.name, authForm.email, authForm.password);
-        setMessage("Registro correcto. Iniciando sesión...");
-        setAuthMode("login");
+      if (mode === "register") {
+        await registerUser({ name, email, password });
+        setOk("Registro correcto. Ya puedes iniciar sesión.");
+        setMode("login");
+        return;
       }
 
-      await login(authForm.email, authForm.password);
-      navigate("/foods"); // después de login, a la vista principal
+      await login(email, password);
+      navigate("/");
     } catch (err) {
-      console.error(err);
-      setError(err.message || "Error de autenticación");
+      setError(err?.message || "Error de autenticación");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="app">
-      <h1>NutriTrace</h1>
-      <div className="card">
-        <div className="tabs">
-          <button
-            className={authMode === "login" ? "active" : ""}
-            onClick={() => setAuthMode("login")}
-          >
-            Iniciar sesión
-          </button>
-          <button
-            className={authMode === "register" ? "active" : ""}
-            onClick={() => setAuthMode("register")}
-          >
-            Registrarse
-          </button>
-        </div>
+    <Box
+      sx={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        background:
+          "radial-gradient(1000px 600px at 20% 20%, rgba(31,122,140,0.14), transparent 60%), radial-gradient(800px 500px at 80% 10%, rgba(231,111,81,0.12), transparent 60%)",
+      }}
+    >
+      <Container maxWidth="sm">
+        <Box sx={{ textAlign: "center", mb: 3 }}>
+          <Typography variant="h3" sx={{ fontWeight: 950, letterSpacing: -1 }}>
+            NutriTrace
+          </Typography>
+          <Typography color="text.secondary" sx={{ mt: 1 }}>
+            Seguimiento nutricional simple, rápido y bonito ✨
+          </Typography>
+        </Box>
 
-        <form onSubmit={handleSubmitAuth} className="form">
-          {authMode === "register" && (
-            <div className="field">
-              <label>Nombre</label>
-              <input
-                type="text"
-                value={authForm.name}
-                onChange={(e) => handleChangeAuth("name", e.target.value)}
+        <Card>
+          <CardContent sx={{ p: 3 }}>
+            <Tabs
+              value={mode}
+              onChange={(_, v) => {
+                setMode(v);
+                setError("");
+                setOk("");
+              }}
+              variant="fullWidth"
+              sx={{ mb: 2 }}
+            >
+              <Tab value="login" label="Entrar" />
+              <Tab value="register" label="Registrarse" />
+            </Tabs>
+
+            <Typography variant="h6" sx={{ fontWeight: 900, mb: 2 }}>
+              {title}
+            </Typography>
+
+            <Box component="form" onSubmit={handleSubmit} sx={{ display: "grid", gap: 2 }}>
+              {mode === "register" && (
+                <TextField
+                  label="Nombre"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  autoComplete="name"
+                  required
+                />
+              )}
+              <TextField
+                label="Email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
                 required
               />
-            </div>
-          )}
+              <TextField
+                label="Contraseña"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete={mode === "login" ? "current-password" : "new-password"}
+                required
+              />
 
-          <div className="field">
-            <label>Email</label>
-            <input
-              type="email"
-              value={authForm.email}
-              onChange={(e) => handleChangeAuth("email", e.target.value)}
-              required
-            />
-          </div>
+              {error && <Alert severity="error">{error}</Alert>}
+              {ok && <Alert severity="success">{ok}</Alert>}
 
-          <div className="field">
-            <label>Contraseña</label>
-            <input
-              type="password"
-              value={authForm.password}
-              onChange={(e) =>
-                handleChangeAuth("password", e.target.value)
-              }
-              required
-            />
-          </div>
-
-          {error && <p className="error">{error}</p>}
-          {message && <p className="ok">{message}</p>}
-
-          <button type="submit" disabled={loading}>
-            {loading
-              ? "Cargando..."
-              : authMode === "login"
-              ? "Entrar"
-              : "Crear cuenta"}
-          </button>
-        </form>
-      </div>
-    </div>
+              <Button type="submit" variant="contained" size="large" disabled={loading}>
+                {loading ? "Cargando..." : title}
+              </Button>
+            </Box>
+          </CardContent>
+        </Card>
+      </Container>
+    </Box>
   );
 }

@@ -1,84 +1,149 @@
 import { useEffect, useState } from "react";
+import {
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
+import { getGoal, upsertGoal } from "../api";
 import { useAuth } from "../context/AuthContext";
-import { Link } from "react-router-dom";
-// cuando tenga API de goals, importar aquí: getGoals, createGoals, updateGoals
+
+function toInt(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.round(n) : 0;
+}
 
 export default function GoalsPage() {
-  const { user, logout } = useAuth();
-  // de momento solo UI; luego conectamos con la API
+  const { token } = useAuth();
+
   const [form, setForm] = useState({
     calories: "",
     protein: "",
     carbs: "",
     fat: "",
   });
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [ok, setOk] = useState("");
 
-  const handleChange = (field, value) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
+  const load = async () => {
+    if (!token) return;
+    setLoading(true);
+    setError("");
+    try {
+      const data = await getGoal(token);
+      setForm({
+        calories: String(data?.calories ?? ""),
+        protein: String(data?.protein ?? ""),
+        carbs: String(data?.carbs ?? ""),
+        fat: String(data?.fat ?? ""),
+      });
+    } catch (e) {
+      // backend lanza 404 si no existe
+      const msg = e?.message || "";
+      if (msg.toLowerCase().includes("todavía") || msg.includes("404")) {
+        // sin objetivos: lo dejamos vacío
+        return;
+      }
+      setError(msg || "No se pudieron cargar los objetivos");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSubmit = (e) => {
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // aquí luego llamas a createGoals/updateGoals
-    console.log("Guardar objetivos:", form);
+    if (!token) return;
+    setError("");
+    setOk("");
+    setSaving(true);
+    try {
+      const payload = {
+        calories: toInt(form.calories),
+        protein: toInt(form.protein),
+        carbs: toInt(form.carbs),
+        fat: toInt(form.fat),
+      };
+      await upsertGoal({ token, payload });
+      setOk("Objetivos guardados correctamente.");
+    } catch (e2) {
+      setError(e2?.message || "No se pudieron guardar los objetivos");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
-    <div className="app">
-      <header className="topbar">
-        <h1>NutriTrace</h1>
-        <div className="user-info">
-          <span>Hola, {user?.name}</span>
-          <Link to="/foods" style={{ marginRight: "10px" }}>
-            Mis alimentos
-          </Link>
-          <button onClick={logout}>Cerrar sesión</button>
-        </div>
-      </header>
+    <Box sx={{ display: "grid", gap: 2.5 }}>
+      <Box>
+        <Typography variant="h5" sx={{ fontWeight: 950 }}>
+          Objetivos
+        </Typography>
+        <Typography color="text.secondary" sx={{ mt: 0.5 }}>
+          Define tus objetivos diarios para ver el progreso en el resumen.
+        </Typography>
+      </Box>
 
-      <main className="layout">
-        <section className="card">
-          <h2>Objetivos diarios</h2>
-          <form onSubmit={handleSubmit} className="form">
-            <div className="field-grid">
-              <div className="field">
-                <label>Calorías</label>
-                <input
-                  type="number"
-                  value={form.calories}
-                  onChange={(e) => handleChange("calories", e.target.value)}
-                />
-              </div>
-              <div className="field">
-                <label>Proteína (g)</label>
-                <input
-                  type="number"
-                  value={form.protein}
-                  onChange={(e) => handleChange("protein", e.target.value)}
-                />
-              </div>
-              <div className="field">
-                <label>Carbohidratos (g)</label>
-                <input
-                  type="number"
-                  value={form.carbs}
-                  onChange={(e) => handleChange("carbs", e.target.value)}
-                />
-              </div>
-              <div className="field">
-                <label>Grasa (g)</label>
-                <input
-                  type="number"
-                  value={form.fat}
-                  onChange={(e) => handleChange("fat", e.target.value)}
-                />
-              </div>
-            </div>
+      {error && <Alert severity="error">{error}</Alert>}
+      {ok && <Alert severity="success">{ok}</Alert>}
 
-            <button type="submit">Guardar objetivos (luego API)</button>
-          </form>
-        </section>
-      </main>
-    </div>
+      <Card>
+        <CardContent>
+          <Box component="form" onSubmit={handleSubmit} sx={{ display: "grid", gap: 2 }}>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+              <TextField
+                label="Calorías (kcal)"
+                type="number"
+                value={form.calories}
+                onChange={(e) => setForm((p) => ({ ...p, calories: e.target.value }))}
+                fullWidth
+              />
+              <TextField
+                label="Proteína (g)"
+                type="number"
+                value={form.protein}
+                onChange={(e) => setForm((p) => ({ ...p, protein: e.target.value }))}
+                fullWidth
+              />
+            </Stack>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+              <TextField
+                label="Carbohidratos (g)"
+                type="number"
+                value={form.carbs}
+                onChange={(e) => setForm((p) => ({ ...p, carbs: e.target.value }))}
+                fullWidth
+              />
+              <TextField
+                label="Grasa (g)"
+                type="number"
+                value={form.fat}
+                onChange={(e) => setForm((p) => ({ ...p, fat: e.target.value }))}
+                fullWidth
+              />
+            </Stack>
+
+            <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1 }}>
+              <Button type="button" variant="outlined" onClick={load} disabled={loading || saving}>
+                Recargar
+              </Button>
+              <Button type="submit" variant="contained" disabled={saving}>
+                {saving ? "Guardando…" : "Guardar"}
+              </Button>
+            </Box>
+          </Box>
+        </CardContent>
+      </Card>
+    </Box>
   );
 }

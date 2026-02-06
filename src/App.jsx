@@ -1,9 +1,16 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import "./App.css";
+import { ThemeProvider } from "@mui/material/styles";
+import CssBaseline from "@mui/material/CssBaseline";
+import { theme } from "./theme";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import AuthPage from "./pages/AuthPage";
 import FoodsPage from "./pages/FoodsPage";
 import GoalsPage from "./pages/GoalsPage";
+import MealsPage from "./pages/MealsPage";
+import DashboardPage from "./pages/DashboardPage";
+import ProfilePage from "./pages/ProfilePage";
+import AppLayout from "./components/AppLayout";
+
 
 function PrivateRoute({ children }) {
   const { token, loading } = useAuth();
@@ -19,10 +26,32 @@ function AppRoutes() {
     <Routes>
       <Route path="/auth" element={<AuthPage />} />
       <Route
+        path="/"
+        element={
+          <PrivateRoute>
+            <AppLayout>
+              <DashboardPage />
+            </AppLayout>
+          </PrivateRoute>
+        }
+      />
+      <Route
         path="/foods"
         element={
           <PrivateRoute>
-            <FoodsPage />
+            <AppLayout>
+              <FoodsPage />
+            </AppLayout>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/meals"
+        element={
+          <PrivateRoute>
+            <AppLayout>
+              <MealsPage />
+            </AppLayout>
           </PrivateRoute>
         }
       />
@@ -30,19 +59,34 @@ function AppRoutes() {
         path="/goals"
         element={
           <PrivateRoute>
-            <GoalsPage />
+            <AppLayout>
+              <GoalsPage />
+            </AppLayout>
           </PrivateRoute>
         }
       />
-      <Route path="*" element={<Navigate to="/foods" replace />} />
+      <Route
+        path="/profile"
+        element={
+          <PrivateRoute>
+            <AppLayout>
+              <ProfilePage />
+            </AppLayout>
+          </PrivateRoute>
+        }
+      />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppRoutes />
-    </AuthProvider>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

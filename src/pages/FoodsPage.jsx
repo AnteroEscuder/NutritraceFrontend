@@ -1,256 +1,281 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
+import AddIcon from "@mui/icons-material/Add";
+import DeleteIcon from "@mui/icons-material/Delete";
+import EditIcon from "@mui/icons-material/Edit";
+import SearchIcon from "@mui/icons-material/Search";
+
+import { createFood, deleteFood, listFoods, updateFood } from "../api";
 import { useAuth } from "../context/AuthContext";
-import { listFoods, createFood, deleteFood, updateFood } from "../api";
-import { Link } from "react-router-dom";
+
+function toNumber(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function emptyForm() {
+  return { name: "", calories: "", protein: "", carbs: "", fat: "" };
+}
 
 export default function FoodsPage() {
-  const { token, user, logout } = useAuth();
-  const [foods, setFoods] = useState([]);
-  const [foodForm, setFoodForm] = useState({
-    name: "",
-    calories: "",
-    protein: "",
-    carbs: "",
-    fat: "",
-  });
-  const [editingFoodId, setEditingFoodId] = useState(null);
+  const { token } = useAuth();
+
+  const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  const loadFoods = async () => {
+  const [search, setSearch] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState(emptyForm());
+  const [saving, setSaving] = useState(false);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter((f) => (f.name || "").toLowerCase().includes(q));
+  }, [items, search]);
+
+  const load = async () => {
     if (!token) return;
+    setError("");
+    setLoading(true);
     try {
-      setLoading(true);
-      const foodsFromApi = await listFoods(token);
-      setFoods(foodsFromApi);
-    } catch (err) {
-      console.error(err);
-      setError("Error al cargar los alimentos");
+      const data = await listFoods({ token });
+      setItems(Array.isArray(data) ? data : []);
+    } catch (e) {
+      setError(e?.message || "No se pudo cargar la lista de alimentos");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadFoods();
+    load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
-  const handleFoodChange = (field, value) => {
-    setFoodForm((prev) => ({ ...prev, [field]: value }));
+  const openCreate = () => {
+    setEditing(null);
+    setForm(emptyForm());
+    setDialogOpen(true);
   };
 
-  const resetForm = () => {
-    setFoodForm({
-      name: "",
-      calories: "",
-      protein: "",
-      carbs: "",
-      fat: "",
+  const openEdit = (food) => {
+    setEditing(food);
+    setForm({
+      name: food.name ?? "",
+      calories: String(food.calories ?? ""),
+      protein: String(food.protein ?? ""),
+      carbs: String(food.carbs ?? ""),
+      fat: String(food.fat ?? ""),
     });
-    setEditingFoodId(null);
+    setDialogOpen(true);
   };
 
-  const handleSubmitFood = async (e) => {
-    e.preventDefault();
+  const closeDialog = () => {
+    setDialogOpen(false);
+    setSaving(false);
+  };
+
+  const handleSave = async () => {
     if (!token) return;
     setError("");
-    setMessage("");
+    setSaving(true);
     try {
-      setLoading(true);
       const payload = {
-        name: foodForm.name,
-        calories: parseFloat(foodForm.calories || 0),
-        protein: parseFloat(foodForm.protein || 0),
-        carbs: parseFloat(foodForm.carbs || 0),
-        fat: parseFloat(foodForm.fat || 0),
+        name: form.name.trim(),
+        calories: toNumber(form.calories),
+        protein: toNumber(form.protein),
+        carbs: toNumber(form.carbs),
+        fat: toNumber(form.fat),
       };
 
-      if (editingFoodId) {
-        const updated = await updateFood(editingFoodId, payload, token);
-        setFoods((prev) => prev.map((f) => (f.id === editingFoodId ? updated : f)));
-        setMessage("Alimento actualizado correctamente.");
+      if (editing?.id) {
+        const updated = await updateFood({ token, id: editing.id, payload });
+        setItems((prev) => prev.map((x) => (x.id === editing.id ? updated : x)));
       } else {
-        const created = await createFood(payload, token);
-        setFoods((prev) => [...prev, created]);
-        setMessage("Alimento creado correctamente.");
+        const created = await createFood({ token, payload });
+        setItems((prev) => [created, ...prev]);
       }
 
-      resetForm();
-    } catch (err) {
-      console.error(err);
-      setError(err.message || "Error al guardar alimento");
-    } finally {
-      setLoading(false);
+      closeDialog();
+    } catch (e) {
+      setError(e?.message || "No se pudo guardar el alimento");
+      setSaving(false);
     }
   };
 
-  const handleDeleteFood = async (id) => {
+  const handleDelete = async (food) => {
     if (!token) return;
-    if (!window.confirm("¿Seguro que quieres borrar este alimento?")) return;
+    if (!window.confirm(`¿Borrar "${food.name}"?`)) return;
     setError("");
-    setMessage("");
     try {
-      setLoading(true);
-      await deleteFood(id, token);
-      setFoods((prev) => prev.filter((f) => f.id !== id));
-      setMessage("Alimento borrado.");
-    } catch (err) {
-      console.error(err);
-      setError(err.message || "Error al borrar alimento");
-    } finally {
-      setLoading(false);
+      await deleteFood({ token, id: food.id });
+      setItems((prev) => prev.filter((x) => x.id !== food.id));
+    } catch (e) {
+      setError(e?.message || "No se pudo borrar el alimento");
     }
-  };
-
-  const handleEditFood = (food) => {
-    setEditingFoodId(food.id);
-    setFoodForm({
-      name: food.name,
-      calories: String(food.calories),
-      protein: String(food.protein),
-      carbs: String(food.carbs),
-      fat: String(food.fat),
-    });
   };
 
   return (
-    <div className="app">
-      <header className="topbar">
-        <h1>NutriTrace</h1>
-        <div className="user-info">
-          <span>Hola, {user?.name}</span>
-          <Link to="/goals" style={{ marginRight: "10px" }}>
-            Mis objetivos
-          </Link>
-          <button onClick={logout}>Cerrar sesión</button>
-        </div>
-      </header>
+    <Box sx={{ display: "grid", gap: 2.5 }}>
+      <Box sx={{ display: "flex", alignItems: "flex-end", gap: 1.5 }}>
+        <Box sx={{ flex: 1 }}>
+          <Typography variant="h5" sx={{ fontWeight: 950 }}>
+            Alimentos
+          </Typography>
+          <Typography color="text.secondary" sx={{ mt: 0.5 }}>
+            Crea tu base de alimentos y reutilízalos al registrar comidas.
+          </Typography>
+        </Box>
 
-      <main className="layout">
-        <section className="card">
-          <h2>{editingFoodId ? "Editar alimento" : "Nuevo alimento"}</h2>
-          <form onSubmit={handleSubmitFood} className="form">
-            <div className="field">
-              <label>Nombre</label>
-              <input
-                type="text"
-                value={foodForm.name}
-                onChange={(e) => handleFoodChange("name", e.target.value)}
-                required
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={openCreate}
+        >
+          Nuevo
+        </Button>
+      </Box>
+
+      {error && <Alert severity="error">{error}</Alert>}
+
+      <Card>
+        <CardContent>
+          <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
+            <TextField
+              placeholder="Buscar alimento…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              InputProps={{
+                startAdornment: <SearchIcon sx={{ mr: 1, opacity: 0.6 }} />,
+              }}
+              fullWidth
+            />
+            <Chip
+              label={`${filtered.length} / ${items.length}`}
+              variant="outlined"
+              sx={{ alignSelf: { xs: "flex-start", md: "center" } }}
+            />
+          </Stack>
+        </CardContent>
+      </Card>
+
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, 1fr)" }, gap: 2 }}>
+        {loading && items.length === 0 ? (
+          <Card>
+            <CardContent>
+              <Typography color="text.secondary">Cargando…</Typography>
+            </CardContent>
+          </Card>
+        ) : filtered.length === 0 ? (
+          <Card>
+            <CardContent>
+              <Typography sx={{ fontWeight: 900 }}>No hay alimentos todavía</Typography>
+              <Typography color="text.secondary" sx={{ mt: 0.5 }}>
+                Pulsa “Nuevo” para crear el primero.
+              </Typography>
+            </CardContent>
+          </Card>
+        ) : (
+          filtered.map((f) => (
+            <Card key={f.id}>
+              <CardContent>
+                <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 950 }} noWrap>
+                      {f.name}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                      {Number(f.calories ?? 0)} kcal · {Number(f.protein ?? 0)}g P · {Number(f.carbs ?? 0)}g HC · {Number(f.fat ?? 0)}g G
+                    </Typography>
+                  </Box>
+                  <IconButton onClick={() => openEdit(f)} aria-label="Editar">
+                    <EditIcon />
+                  </IconButton>
+                  <IconButton onClick={() => handleDelete(f)} aria-label="Borrar">
+                    <DeleteIcon />
+                  </IconButton>
+                </Box>
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </Box>
+
+      <Dialog open={dialogOpen} onClose={closeDialog} fullWidth maxWidth="sm">
+        <DialogTitle sx={{ fontWeight: 950 }}>
+          {editing ? "Editar alimento" : "Nuevo alimento"}
+        </DialogTitle>
+        <DialogContent sx={{ pt: 1 }}>
+          <Box sx={{ display: "grid", gap: 2, mt: 1 }}>
+            <TextField
+              label="Nombre"
+              value={form.name}
+              onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+              required
+            />
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" },
+                gap: 2,
+              }}
+            >
+              <TextField
+                label="Calorías"
+                type="number"
+                inputProps={{ step: "0.01" }}
+                value={form.calories}
+                onChange={(e) => setForm((p) => ({ ...p, calories: e.target.value }))}
               />
-            </div>
-            <div className="field-grid">
-              <div className="field">
-                <label>Calorías</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={foodForm.calories}
-                  onChange={(e) => handleFoodChange("calories", e.target.value)}
-                  required
-                />
-              </div>
-              <div className="field">
-                <label>Proteína (g)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={foodForm.protein}
-                  onChange={(e) => handleFoodChange("protein", e.target.value)}
-                  required
-                />
-              </div>
-              <div className="field">
-                <label>Carbohidratos (g)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={foodForm.carbs}
-                  onChange={(e) => handleFoodChange("carbs", e.target.value)}
-                  required
-                />
-              </div>
-              <div className="field">
-                <label>Grasa (g)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={foodForm.fat}
-                  onChange={(e) => handleFoodChange("fat", e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
-            <button type="submit" disabled={loading}>
-              {loading
-                ? "Guardando..."
-                : editingFoodId
-                ? "Actualizar alimento"
-                : "Guardar alimento"}
-            </button>
-            {editingFoodId && (
-              <button
-                type="button"
-                onClick={resetForm}
-                disabled={loading}
-                style={{ marginLeft: "8px" }}
-              >
-                Cancelar edición
-              </button>
-            )}
-          </form>
-        </section>
-
-        <section className="card">
-          <h2>Listado de alimentos</h2>
-          {loading && !foods.length ? (
-            <p>Cargando...</p>
-          ) : foods.length === 0 ? (
-            <p>Todavía no hay alimentos.</p>
-          ) : (
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Nombre</th>
-                  <th>kcal</th>
-                  <th>Prot</th>
-                  <th>HC</th>
-                  <th>Grasa</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {foods.map((f) => (
-                  <tr key={f.id}>
-                    <td>{f.name}</td>
-                    <td>{f.calories}</td>
-                    <td>{f.protein}</td>
-                    <td>{f.carbs}</td>
-                    <td>{f.fat}</td>
-                    <td>
-                      <button type="button" onClick={() => handleEditFood(f)}>
-                        Editar
-                      </button>
-                      <button
-                        className="danger"
-                        type="button"
-                        onClick={() => handleDeleteFood(f.id)}
-                      >
-                        Borrar
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-          {error && <p className="error">{error}</p>}
-          {message && <p className="ok">{message}</p>}
-        </section>
-      </main>
-    </div>
+              <TextField
+                label="Proteína (g)"
+                type="number"
+                inputProps={{ step: "0.01" }}
+                value={form.protein}
+                onChange={(e) => setForm((p) => ({ ...p, protein: e.target.value }))}
+              />
+              <TextField
+                label="Carbohidratos (g)"
+                type="number"
+                inputProps={{ step: "0.01" }}
+                value={form.carbs}
+                onChange={(e) => setForm((p) => ({ ...p, carbs: e.target.value }))}
+              />
+              <TextField
+                label="Grasa (g)"
+                type="number"
+                inputProps={{ step: "0.01" }}
+                value={form.fat}
+                onChange={(e) => setForm((p) => ({ ...p, fat: e.target.value }))}
+              />
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={closeDialog}>Cancelar</Button>
+          <Button variant="contained" onClick={handleSave} disabled={saving || !form.name.trim()}>
+            {saving ? "Guardando…" : "Guardar"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
 }

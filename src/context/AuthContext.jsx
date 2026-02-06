@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { loginUser, getCurrentUser } from "../api";
+import { loginUser, getMe } from "../api";
 
 const AuthContext = createContext(null);
 
@@ -12,7 +12,7 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const loadUser = async () => {
       try {
-        const me = await getCurrentUser(token);
+        const me = await getMe(token);
         setUser(me);
       } catch (err) {
         console.error("Error cargando usuario actual:", err);
@@ -32,10 +32,10 @@ export function AuthProvider({ children }) {
   }, [token]);
 
   const login = async (email, password) => {
-    const newToken = await loginUser(email, password);
+    const newToken = await loginUser({ email, password });
     setToken(newToken);
     localStorage.setItem("token", newToken);
-    const me = await getCurrentUser(newToken);
+    const me = await getMe(newToken);
     setUser(me);
   };
 
