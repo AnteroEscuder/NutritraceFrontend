@@ -201,5 +201,22 @@ export async function updateMyAllergies(allergenIds, token) {
   return res.json();
 }
 
+export async function getCommunityMessages({ token, roomId = "general", limit = 50, beforeId }) {
+  const params = new URLSearchParams({ room_id: roomId, limit: String(limit) });
+  if (beforeId) params.set("before_id", String(beforeId));
+
+  const res = await fetch(`${API_BASE}/community/messages?${params.toString()}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!res.ok) throw new Error("No se pudieron cargar mensajes");
+  return res.json();
+}
+
+export function connectCommunitySocket({ token }) {
+  const wsBase = API_BASE.replace(/^http/, "ws");
+  return new WebSocket(`${wsBase}/community/ws?token=${encodeURIComponent(token)}`);
+}
+
 
 export { API_BASE };

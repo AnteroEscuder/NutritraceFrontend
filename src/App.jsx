@@ -9,8 +9,8 @@ import GoalsPage from "./pages/GoalsPage";
 import MealsPage from "./pages/MealsPage";
 import DashboardPage from "./pages/DashboardPage";
 import ProfilePage from "./pages/ProfilePage";
+import CommunityChatPage from "./pages/CommunityChatPage";
 import AppLayout from "./components/AppLayout";
-
 
 function PrivateRoute({ children }) {
   const { token, loading } = useAuth();
@@ -66,12 +66,18 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/community"
+        element={
+          <PrivateRoute>
+            <CommunityChatPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
         path="/profile"
         element={
           <PrivateRoute>
-            <AppLayout>
-              <ProfilePage />
-            </AppLayout>
+            <ProfilePage />
           </PrivateRoute>
         }
       />

@@ -50,7 +50,6 @@ export default function DashboardPage() {
       setError(e?.message || "No se pudo cargar el resumen");
     }
 
-    // últimos 7 días (incluyendo el día seleccionado)
     const days = Array.from({ length: 7 }, (_, i) => {
       const d = new Date(day);
       d.setDate(d.getDate() - (6 - i));
@@ -66,14 +65,13 @@ export default function DashboardPage() {
     );
 
     setWeek({
-      labels: days.map((d) => d.slice(5)), // "MM-DD"
+      labels: days.map((d) => d.slice(5)),
       calories: weekSummaries.map((s) => s?.total_calories ?? 0),
     });
   };
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, user?.id, day]);
 
   const progress = useMemo(() => {

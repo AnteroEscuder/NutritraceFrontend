@@ -23,6 +23,7 @@ import RestaurantMenuIcon from "@mui/icons-material/RestaurantMenu";
 import LocalDiningIcon from "@mui/icons-material/LocalDining";
 import FlagIcon from "@mui/icons-material/Flag";
 import PersonIcon from "@mui/icons-material/Person";
+import ForumIcon from "@mui/icons-material/Forum";
 
 import { Link, useLocation } from "react-router-dom";
 import { useTheme } from "@mui/material/styles";
@@ -48,6 +49,7 @@ export default function AppLayout({ children }) {
       { to: "/meals", label: "Comidas", icon: <LocalDiningIcon /> },
       { to: "/foods", label: "Alimentos", icon: <RestaurantMenuIcon /> },
       { to: "/goals", label: "Objetivos", icon: <FlagIcon /> },
+      { to: "/community", label: "Comunidad", icon: <ForumIcon /> },
       { to: "/profile", label: "Cuenta", icon: <PersonIcon /> },
     ],
     []
@@ -151,11 +153,13 @@ export default function AppLayout({ children }) {
       ) : (
         <Drawer
           variant="permanent"
-          PaperProps={{
-            sx: {
+          sx={{
+            width: drawerWidth,
+            flexShrink: 0,
+            '& .MuiDrawer-paper': {
               width: drawerWidth,
-              boxSizing: "border-box",
-              borderRight: "1px solid rgba(0,0,0,0.06)",
+              boxSizing: 'border-box',
+              borderRight: '1px solid rgba(0,0,0,0.06)',
             },
           }}
         >
@@ -168,15 +172,16 @@ export default function AppLayout({ children }) {
         component="main"
         sx={{
           flex: 1,
+          minWidth: 0,
+          width: { md: `calc(100% - ${drawerWidth}px)` },
           px: { xs: 2, md: 3 },
           pb: 4,
           pt: 10,
-          // ml: { md: `${drawerWidth}px` },
         }}
       >
   <Container
     maxWidth="lg"                 // lg ~ 1200px aprox
-    sx={{ px: { xs: 2, md: 3 } }}
+    sx={{ px: { xs: 2, md: 3 } }}  // padding consistente
   >
     {children}
   </Container>
