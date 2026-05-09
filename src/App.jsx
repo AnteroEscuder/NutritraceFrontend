@@ -1,7 +1,4 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import { ThemeProvider } from "@mui/material/styles";
-import CssBaseline from "@mui/material/CssBaseline";
-import { theme } from "./theme";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import AuthPage from "./pages/AuthPage";
 import FoodsPage from "./pages/FoodsPage";
@@ -11,6 +8,8 @@ import DashboardPage from "./pages/DashboardPage";
 import ProfilePage from "./pages/ProfilePage";
 import CommunityChatPage from "./pages/CommunityChatPage";
 import AppLayout from "./components/AppLayout";
+import { ThemeModeProvider } from "./context/ThemeContext";
+import NotFoundPage from "./pages/NotFoundPage";
 
 function PrivateRoute({ children }) {
   const { token, loading } = useAuth();
@@ -81,18 +80,17 @@ function AppRoutes() {
           </PrivateRoute>
         }
       />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 }
 
 export default function App() {
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
+    <ThemeModeProvider>
       <AuthProvider>
         <AppRoutes />
       </AuthProvider>
-    </ThemeProvider>
+    </ThemeModeProvider>
   );
 }

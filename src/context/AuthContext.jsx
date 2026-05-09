@@ -8,49 +8,68 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(!!token);
 
-  // Cargar /auth/me si ya hay token guardado
+  const clearSession = () => {
+    localStorage.removeItem("token");
+
+    setToken(null);
+    setUser(null);
+  };
+
   useEffect(() => {
     const loadUser = async () => {
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+
       try {
         const me = await getMe(token);
         setUser(me);
       } catch (err) {
         console.error("Error cargando usuario actual:", err);
-        setToken(null);
-        setUser(null);
-        localStorage.removeItem("token");
+        clearSession();
       } finally {
         setLoading(false);
       }
     };
 
-    if (token) {
-      loadUser();
-    } else {
-      setLoading(false);
-    }
+    loadUser();
   }, [token]);
 
   const login = async (email, password) => {
-    const newToken = await loginUser({ email, password });
-    setToken(newToken);
-    localStorage.setItem("token", newToken);
-    const me = await getMe(newToken);
-    setUser(me);
+    setLoading(true);
+
+    try {
+      const newToken = await loginUser({ email, password });
+      localStorage.setItem("token", newToken);
+      setToken(newToken);
+
+      const me = await getMe(newToken);
+      setUser(me);
+
+      return me;
+    } catch (err) {
+      console.error("Error en login:", err);
+      clearSession();
+      throw err;
+    } finally {
+      setLoading(false);
+    }
   };
 
   const logout = () => {
-    setToken(null);
-    setUser(null);
-    localStorage.removeItem("token");
+    clearSession();
+    setLoading(false);
   };
 
   return (
-    <AuthContext.Provider
-      value={{ token, user, loading, login, logout, setUser }}
-    >
-      {children}
-    </AuthContext.Provider>
+      <AuthContext.Provider
+          value={{ token, user, loading, login, logout, setUser }}
+      >
+        {children}
+      </AuthContext.Provider>
   );
 }
 

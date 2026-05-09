@@ -24,10 +24,17 @@ import LocalDiningIcon from "@mui/icons-material/LocalDining";
 import FlagIcon from "@mui/icons-material/Flag";
 import PersonIcon from "@mui/icons-material/Person";
 import ForumIcon from "@mui/icons-material/Forum";
+import DarkModeIcon from "@mui/icons-material/DarkMode";
+import LightModeIcon from "@mui/icons-material/LightMode";
+
+import { useThemeMode } from "../context/ThemeContext";
 
 import { Link, useLocation } from "react-router-dom";
 import { useTheme } from "@mui/material/styles";
 import { useAuth } from "../context/AuthContext";
+import { useI18n } from "../i18n/I18nContext";
+
+import { API_BASE } from "../api";
 
 const drawerWidth = 280;
 
@@ -38,6 +45,8 @@ function initials(name) {
 
 export default function AppLayout({ children }) {
   const { user, logout } = useAuth();
+  const { lang, setLang, t } = useI18n();
+  const { mode, toggleTheme } = useThemeMode();
   const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
@@ -45,21 +54,29 @@ export default function AppLayout({ children }) {
 
   const nav = useMemo(
     () => [
-      { to: "/", label: "Resumen", icon: <DashboardIcon /> },
-      { to: "/meals", label: "Comidas", icon: <LocalDiningIcon /> },
-      { to: "/foods", label: "Alimentos", icon: <RestaurantMenuIcon /> },
-      { to: "/goals", label: "Objetivos", icon: <FlagIcon /> },
-      { to: "/community", label: "Comunidad", icon: <ForumIcon /> },
-      { to: "/profile", label: "Cuenta", icon: <PersonIcon /> },
+      { to: "/", label: t("Resumen"), icon: <DashboardIcon /> },
+      { to: "/meals", label: t("Comidas"), icon: <LocalDiningIcon /> },
+      { to: "/foods", label: t("Alimentos"), icon: <RestaurantMenuIcon /> },
+      { to: "/goals", label: t("Objetivos"), icon: <FlagIcon /> },
+      { to: "/community", label: t("Comunidad"), icon: <ForumIcon /> },
+      { to: "/profile", label: t("Cuenta"), icon: <PersonIcon /> },
     ],
-    []
+    [t]
   );
 
   const drawer = (
     <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
       <Box sx={{ p: 2.5 }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-          <Avatar sx={{ bgcolor: "primary.main" }}>{initials(user?.name)}</Avatar>
+          <Avatar
+            src={
+              user?.profile_image_url
+                ? `${API_BASE}${user.profile_image_url}`
+                : undefined
+            }
+          >
+            {user?.name?.[0]}
+          </Avatar>
           <Box sx={{ minWidth: 0 }}>
             <Typography fontWeight={800} noWrap>
               {user?.name || "NutriTrace"}
@@ -93,7 +110,7 @@ export default function AppLayout({ children }) {
 
       <Box sx={{ mt: "auto", p: 2 }}>
         <Button fullWidth variant="outlined" color="primary" onClick={logout}>
-          Cerrar sesión
+          {t("Cerrar sesión")}
         </Button>
         <Typography
           variant="caption"
@@ -113,15 +130,18 @@ export default function AppLayout({ children }) {
         color="transparent"
         elevation={0}
         sx={{
-          borderBottom: "1px solid rgba(0,0,0,0.06)",
+          borderBottom: `1px solid ${theme.palette.divider}`,
           backdropFilter: "blur(10px)",
-          bgcolor: "rgba(246,248,251,0.7)",
+          bgcolor:
+            theme.palette.mode === "dark"
+              ? "rgba(15,23,42,0.7)"
+              : "rgba(246,248,251,0.7)",
           zIndex: (t) => t.zIndex.drawer + 1,
         }}
       >
         <Toolbar sx={{ gap: 1 }}>
           {isMobile && (
-            <IconButton onClick={() => setOpen(true)} aria-label="Abrir menú">
+            <IconButton onClick={() => setOpen(true)} aria-label={t("Abrir menú")}>
               <MenuIcon />
             </IconButton>
           )}
@@ -129,10 +149,35 @@ export default function AppLayout({ children }) {
             NutriTrace
           </Typography>
           <Box sx={{ flex: 1 }} />
+          <Box data-lang-selector sx={{ display: "flex", alignItems: "center", gap: 0.75, mr: 1 }}>
+            <Button
+              size="small"
+              variant={lang === "es" ? "contained" : "outlined"}
+              onClick={() => setLang("es")}
+            >
+              ES
+            </Button>
+            <Button
+              size="small"
+              variant={lang === "en" ? "contained" : "outlined"}
+              onClick={() => setLang("en")}
+            >
+              EN
+            </Button>
+          </Box>
+          <IconButton onClick={toggleTheme}>
+            {mode === "dark" ? <LightModeIcon /> : <DarkModeIcon />}
+          </IconButton>
           {!isMobile && (
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <Avatar sx={{ width: 32, height: 32, bgcolor: "primary.main" }}>
-                {initials(user?.name)}
+              <Avatar
+                src={
+                  user?.profile_image_url
+                    ? `${API_BASE}${user.profile_image_url}`
+                    : undefined
+                }
+              >
+                {user?.name?.[0]}
               </Avatar>
               <Typography variant="body2" color="text.secondary" noWrap>
                 {user?.name}
@@ -159,7 +204,7 @@ export default function AppLayout({ children }) {
             '& .MuiDrawer-paper': {
               width: drawerWidth,
               boxSizing: 'border-box',
-              borderRight: '1px solid rgba(0,0,0,0.06)',
+              borderRight: `1px solid ${theme.palette.divider}`,
             },
           }}
         >
@@ -179,12 +224,12 @@ export default function AppLayout({ children }) {
           pt: 10,
         }}
       >
-  <Container
-    maxWidth="lg"                 // lg ~ 1200px aprox
-    sx={{ px: { xs: 2, md: 3 } }}  // padding consistente
-  >
-    {children}
-  </Container>
+        <Container
+          maxWidth="lg"
+          sx={{ px: { xs: 2, md: 3 } }}
+        >
+          {children}
+        </Container>
       </Box>
     </Box>
   );

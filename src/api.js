@@ -218,5 +218,32 @@ export function connectCommunitySocket({ token }) {
   return new WebSocket(`${wsBase}/community/ws?token=${encodeURIComponent(token)}`);
 }
 
+export async function uploadProfilePhoto({ token, file }) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return request("/profile/photo", {
+    method: "POST",
+    token,
+    body: formData,
+  });
+}
+
+export async function updateMyProfile({ token, payload }) {
+  return request("/profile/me", {
+    method: "PUT",
+    token,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteProfilePhoto(token) {
+  return request("/profile/photo", {
+    method: "DELETE",
+    token,
+  });
+}
+
 
 export { API_BASE };

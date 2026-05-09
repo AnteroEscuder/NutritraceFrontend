@@ -10,6 +10,12 @@ import {
   LinearProgress,
   Stack,
   Typography,
+  Avatar,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
 } from "@mui/material";
 
 import LabelIcon from "@mui/icons-material/Label";
@@ -23,7 +29,16 @@ import LunchDiningIcon from "@mui/icons-material/LunchDining";
 
 import AppLayout from "../components/AppLayout";
 import { useAuth } from "../context/AuthContext";
-import { listAllergens, getMyAllergies, updateMyAllergies } from "../api";
+import {
+  API_BASE,
+  listAllergens,
+  getMyAllergies,
+  updateMyAllergies,
+  uploadProfilePhoto,
+  updateMyProfile,
+  deleteProfilePhoto,
+} from "../api";
+import { useI18n } from "../i18n/I18nContext";
 
 function allergenIcon(name) {
   const n = (name || "").toLowerCase();
@@ -38,7 +53,8 @@ function allergenIcon(name) {
 }
 
 export default function ProfilePage() {
-  const { token, user } = useAuth();
+  const { user, token, setUser } = useAuth();
+  const { t } = useI18n();
 
   const [allergens, setAllergens] = useState([]);
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -48,9 +64,28 @@ export default function ProfilePage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  const selectedCount = selectedIds.size;
+  const [photoModalOpen, setPhotoModalOpen] = useState(false);
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState("");
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
+  const [profileForm, setProfileForm] = useState({
+    name: user?.name || "",
+    email: user?.email || "",
+  });
+
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [deletingPhoto, setDeletingPhoto] = useState(false);
+
+  const selectedCount = selectedIds.size;
   const selectedArray = useMemo(() => Array.from(selectedIds), [selectedIds]);
+
+  useEffect(() => {
+    setProfileForm({
+      name: user?.name || "",
+      email: user?.email || "",
+    });
+  }, [user?.name, user?.email]);
 
   useEffect(() => {
     if (!token) return;
@@ -58,30 +93,30 @@ export default function ProfilePage() {
     const load = async () => {
       setError("");
       setMessage("");
+
       try {
         setLoading(true);
 
-        // 1) lista de alérgenos disponibles
         const a = await listAllergens();
-        setAllergens(a);
+        setAllergens(Array.isArray(a) ? a : []);
 
-        // 2) alergias actuales del usuario
         const my = await getMyAllergies(token);
-        setSelectedIds(new Set(my.map((x) => x.id)));
+        setSelectedIds(new Set((Array.isArray(my) ? my : []).map((x) => x.id)));
       } catch (err) {
         console.error(err);
-        setError(err.message || "Error cargando perfil");
+        setError(err.message || t("Error cargando perfil"));
       } finally {
         setLoading(false);
       }
     };
 
     load();
-  }, [token]);
+  }, [token, t]);
 
   const toggleAllergen = (id) => {
     setMessage("");
     setError("");
+
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -111,14 +146,93 @@ export default function ProfilePage() {
 
     try {
       setSaving(true);
+
       const updated = await updateMyAllergies(selectedArray, token);
       setSelectedIds(new Set(updated.map((x) => x.id)));
-      setMessage("Perfil actualizado. Guardado correctamente.");
+      setMessage(t("Perfil actualizado. Guardado correctamente."));
     } catch (err) {
       console.error(err);
-      setError(err.message || "Error al guardar");
+      setError(err.message || t("Error al guardar"));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handlePhotoChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
+  };
+
+  const handleUploadPhoto = async () => {
+    if (!photoFile || !token) return;
+
+    try {
+      setUploadingPhoto(true);
+      setError("");
+      setMessage("");
+
+      const updatedUser = await uploadProfilePhoto({
+        token,
+        file: photoFile,
+      });
+
+      setMessage(t("Foto de perfil actualizada correctamente."));
+      setPhotoModalOpen(false);
+      setPhotoFile(null);
+      setPhotoPreview("");
+
+      setUser(updatedUser);
+    } catch (err) {
+      setError(err.message || t("Error subiendo la foto"));
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handleUpdateProfile = async (e) => {
+    e.preventDefault();
+    if (!token) return;
+
+    try {
+      setSavingProfile(true);
+      setError("");
+      setMessage("");
+
+      const updatedUser = await updateMyProfile({
+        token,
+        payload: profileForm,
+      });
+
+      setUser(updatedUser);
+      setMessage(t("Perfil actualizado correctamente."));
+    } catch (err) {
+      setError(err.message || t("Error actualizando perfil"));
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handleDeletePhoto = async () => {
+    if (!token) return;
+
+    try {
+      setDeletingPhoto(true);
+      setError("");
+      setMessage("");
+
+      const updatedUser = await deleteProfilePhoto(token);
+
+      setUser(updatedUser);
+      setPhotoFile(null);
+      setPhotoPreview("");
+      setMessage(t("Foto de perfil eliminada correctamente."));
+    } catch (err) {
+      setError(err.message || t("Error eliminando la foto"));
+    } finally {
+      setDeletingPhoto(false);
     }
   };
 
@@ -127,27 +241,146 @@ export default function ProfilePage() {
       <Box sx={{ maxWidth: 1100, mx: "auto" }}>
         <Stack spacing={2.5}>
           <Box>
-            <Typography variant="h5">Cuenta</Typography>
+            <Typography variant="h5">{t("Cuenta")}</Typography>
+
             <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-              Gestiona tu perfil y selecciona tus alergias para que NutriTrace pueda avisarte.
+              {t("Gestiona tu perfil y selecciona tus alergias para que NutriTrace pueda avisarte.")}
             </Typography>
+
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
-              Sesión iniciada como <b>{user?.name || "Usuario"}</b>
+              {t("Sesión iniciada como")} <b>{user?.name || t("Usuario")}</b>
               {user?.email ? ` · ${user.email}` : ""}
             </Typography>
+
+            <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 2 }}>
+              <Avatar
+                src={
+                  user?.profile_image_url
+                    ? `${API_BASE}${user.profile_image_url}`
+                    : undefined
+                }
+                sx={{ width: 80, height: 80 }}
+              >
+                {user?.name?.[0]?.toUpperCase() || "U"}
+              </Avatar>
+
+              <Stack direction="row" spacing={1} flexWrap="wrap">
+                <Button variant="outlined" onClick={() => setPhotoModalOpen(true)}>
+                  {t("Cambiar foto de perfil")}
+                </Button>
+
+                {user?.profile_image_url && (
+                  <Button
+                    variant="text"
+                    color="error"
+                    onClick={handleDeletePhoto}
+                    disabled={deletingPhoto}
+                  >
+                    {deletingPhoto ? t("Eliminando…") : t("Quitar foto")}
+                  </Button>
+                )}
+              </Stack>
+            </Stack>
+
+            <Dialog
+              open={photoModalOpen}
+              onClose={() => setPhotoModalOpen(false)}
+              fullWidth
+              maxWidth="xs"
+            >
+              <DialogTitle>{t("Cambiar foto de perfil")}</DialogTitle>
+
+              <DialogContent>
+                <Stack spacing={2} alignItems="center" sx={{ mt: 1 }}>
+                  <Avatar src={photoPreview} sx={{ width: 120, height: 120 }}>
+                    {user?.name?.[0]?.toUpperCase() || "U"}
+                  </Avatar>
+
+                  <Button variant="contained" component="label">
+                    {t("Seleccionar imagen")}
+                    <input
+                      hidden
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      onChange={handlePhotoChange}
+                    />
+                  </Button>
+
+                  {photoFile && (
+                    <Typography variant="body2" color="text.secondary">
+                      {photoFile.name}
+                    </Typography>
+                  )}
+                </Stack>
+              </DialogContent>
+
+              <DialogActions>
+                <Button onClick={() => setPhotoModalOpen(false)}>
+                  {t("Cancelar")}
+                </Button>
+
+                <Button
+                  variant="contained"
+                  onClick={handleUploadPhoto}
+                  disabled={!photoFile || uploadingPhoto}
+                >
+                  {uploadingPhoto ? t("Subiendo...") : t("Guardar foto")}
+                </Button>
+              </DialogActions>
+            </Dialog>
           </Box>
+
+          <Card sx={{ mt: 2 }}>
+            <CardContent>
+              <Stack component="form" onSubmit={handleUpdateProfile} spacing={2}>
+                <Typography variant="h6">{t("Editar perfil")}</Typography>
+
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                  <TextField
+                    label={t("Nombre")}
+                    value={profileForm.name}
+                    onChange={(e) =>
+                      setProfileForm((p) => ({ ...p, name: e.target.value }))
+                    }
+                    fullWidth
+                    required
+                  />
+
+                  <TextField
+                    label={t("Email")}
+                    type="email"
+                    value={profileForm.email}
+                    onChange={(e) =>
+                      setProfileForm((p) => ({ ...p, email: e.target.value }))
+                    }
+                    fullWidth
+                    required
+                  />
+                </Stack>
+
+                <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1 }}>
+                  <Button type="submit" variant="contained" disabled={savingProfile}>
+                    {savingProfile ? t("Guardando…") : t("Guardar perfil")}
+                  </Button>
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
 
           <Card>
             {loading && <LinearProgress />}
+
             <CardContent>
               <Stack spacing={2}>
                 <Box>
                   <Typography variant="h6" sx={{ mb: 0.25 }}>
-                    Alergias
+                    {t("Alergias")}
                   </Typography>
+
                   <Typography variant="body2" color="text.secondary">
-                    {selectedCount} seleccionada{selectedCount === 1 ? "" : "s"}.
-                    Toca un alérgeno para marcarlo o desmarcarlo.
+                    {selectedCount}{" "}
+                    {selectedCount === 1 ? t("seleccionada") : t("seleccionadas")}.{" "}
+                    {t("Toca un alérgeno para marcarlo o desmarcarlo.")}
                   </Typography>
                 </Box>
 
@@ -157,18 +390,17 @@ export default function ProfilePage() {
                     onClick={selectAll}
                     disabled={!allergens.length || saving || loading}
                   >
-                    Seleccionar todo
+                    {t("Seleccionar todo")}
                   </Button>
+
                   <Button variant="text" onClick={selectNone} disabled={saving || loading}>
-                    Quitar todo
+                    {t("Quitar todo")}
                   </Button>
+
                   <Box sx={{ flex: 1 }} />
-                  <Button
-                    variant="contained"
-                    onClick={handleSave}
-                    disabled={saving || loading}
-                  >
-                    {saving ? "Guardando…" : "Guardar cambios"}
+
+                  <Button variant="contained" onClick={handleSave} disabled={saving || loading}>
+                    {saving ? t("Guardando…") : t("Guardar cambios")}
                   </Button>
                 </Stack>
 
@@ -184,11 +416,12 @@ export default function ProfilePage() {
                 >
                   {allergens.map((a) => {
                     const selected = selectedIds.has(a.id);
+
                     return (
                       <Chip
                         key={a.id}
                         icon={allergenIcon(a.name)}
-                        label={a.name}
+                        label={t(a.name)}
                         clickable
                         onClick={() => toggleAllergen(a.id)}
                         disabled={saving || loading}
@@ -205,28 +438,29 @@ export default function ProfilePage() {
 
                   {!loading && !allergens.length && (
                     <Typography variant="body2" color="text.secondary">
-                      No hay alérgenos cargados en el sistema.
+                      {t("No hay alérgenos cargados en el sistema.")}
                     </Typography>
                   )}
                 </Box>
 
-                {error && <Alert severity="error">{error}</Alert>}
-                {message && <Alert severity="success">{message}</Alert>}
+                {error && <Alert severity="error">{String(error)}</Alert>}
+                {message && <Alert severity="success">{String(message)}</Alert>}
               </Stack>
             </CardContent>
           </Card>
 
           <Card>
             <CardContent>
-              <Typography variant="h6">Cómo se usa</Typography>
+              <Typography variant="h6">{t("Cómo se usa")}</Typography>
+
               <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                Esto ayuda a que la app pueda avisarte y filtrar alimentos incompatibles.
+                {t("Esto ayuda a que la app pueda avisarte y filtrar alimentos incompatibles.")}
               </Typography>
 
               <Box component="ul" sx={{ mt: 1.5, mb: 0, pl: 2.5, lineHeight: 1.8 }}>
-                <li>Marca aquí tus alérgenos (por ejemplo: Gluten, Lactosa…).</li>
-                <li>Al registrar comidas, la app podrá avisarte si un alimento los contiene.</li>
-                <li>Puedes editarlo cuando quieras: se guarda en tu perfil.</li>
+                <li>{t("Marca aquí tus alérgenos (por ejemplo: Gluten, Lactosa…).")}</li>
+                <li>{t("Al registrar comidas, la app podrá avisarte si un alimento los contiene.")}</li>
+                <li>{t("Puedes editarlo cuando quieras: se guarda en tu perfil.")}</li>
               </Box>
             </CardContent>
           </Card>

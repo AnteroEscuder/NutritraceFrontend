@@ -19,9 +19,17 @@ import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import SearchIcon from "@mui/icons-material/Search";
+import ConfirmDialog from "../components/ConfirmDialog";
 
-import { createFood, deleteFood, listFoods, updateFood } from "../api";
+import {
+  createFood,
+  deleteFood,
+  listAllergens,
+  listFoods,
+  updateFood,
+} from "../api";
 import { useAuth } from "../context/AuthContext";
+import { useI18n } from "../i18n/I18nContext";
 
 function toNumber(v) {
   const n = Number(v);
@@ -29,13 +37,25 @@ function toNumber(v) {
 }
 
 function emptyForm() {
-  return { name: "", calories: "", protein: "", carbs: "", fat: "" };
+  return {
+    name: "",
+    calories: "",
+    protein: "",
+    carbs: "",
+    fat: "",
+    allergenIds: [],
+  };
 }
 
 export default function FoodsPage() {
   const { token } = useAuth();
+  const { t } = useI18n();
+
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const [items, setItems] = useState([]);
+  const [allergens, setAllergens] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -53,13 +73,20 @@ export default function FoodsPage() {
 
   const load = async () => {
     if (!token) return;
+
     setError("");
     setLoading(true);
+
     try {
-      const data = await listFoods({ token });
-      setItems(Array.isArray(data) ? data : []);
+      const [foodsData, allergensData] = await Promise.all([
+        listFoods({ token }),
+        listAllergens(),
+      ]);
+
+      setItems(Array.isArray(foodsData) ? foodsData : []);
+      setAllergens(Array.isArray(allergensData) ? allergensData : []);
     } catch (e) {
-      setError(e?.message || "No se pudo cargar la lista de alimentos");
+      setError(e?.message || t("No se pudo cargar la lista de alimentos"));
     } finally {
       setLoading(false);
     }
@@ -84,6 +111,7 @@ export default function FoodsPage() {
       protein: String(food.protein ?? ""),
       carbs: String(food.carbs ?? ""),
       fat: String(food.fat ?? ""),
+      allergenIds: (food.allergens || []).map((a) => a.id),
     });
     setDialogOpen(true);
   };
@@ -93,10 +121,29 @@ export default function FoodsPage() {
     setSaving(false);
   };
 
+  const toggleAllergen = (id) => {
+    setForm((prev) => {
+      const current = new Set(prev.allergenIds || []);
+
+      if (current.has(id)) {
+        current.delete(id);
+      } else {
+        current.add(id);
+      }
+
+      return {
+        ...prev,
+        allergenIds: Array.from(current),
+      };
+    });
+  };
+
   const handleSave = async () => {
     if (!token) return;
+
     setError("");
     setSaving(true);
+
     try {
       const payload = {
         name: form.name.trim(),
@@ -104,11 +151,19 @@ export default function FoodsPage() {
         protein: toNumber(form.protein),
         carbs: toNumber(form.carbs),
         fat: toNumber(form.fat),
+        allergen_ids: form.allergenIds || [],
       };
 
       if (editing?.id) {
-        const updated = await updateFood({ token, id: editing.id, payload });
-        setItems((prev) => prev.map((x) => (x.id === editing.id ? updated : x)));
+        const updated = await updateFood({
+          token,
+          id: editing.id,
+          payload,
+        });
+
+        setItems((prev) =>
+          prev.map((x) => (x.id === editing.id ? updated : x))
+        );
       } else {
         const created = await createFood({ token, payload });
         setItems((prev) => [created, ...prev]);
@@ -116,20 +171,29 @@ export default function FoodsPage() {
 
       closeDialog();
     } catch (e) {
-      setError(e?.message || "No se pudo guardar el alimento");
+      setError(e?.message || t("No se pudo guardar el alimento"));
       setSaving(false);
     }
   };
 
-  const handleDelete = async (food) => {
-    if (!token) return;
-    if (!window.confirm(`¿Borrar "${food.name}"?`)) return;
+  const handleDelete = async () => {
+    if (!token || !deleteTarget) return;
+
+    setDeleting(true);
     setError("");
+
     try {
-      await deleteFood({ token, id: food.id });
-      setItems((prev) => prev.filter((x) => x.id !== food.id));
+      await deleteFood({ token, id: deleteTarget.id });
+
+      setItems((prev) =>
+        prev.filter((x) => x.id !== deleteTarget.id)
+      );
+
+      setDeleteTarget(null);
     } catch (e) {
-      setError(e?.message || "No se pudo borrar el alimento");
+      setError(e?.message || t("No se pudo borrar el alimento"));
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -138,10 +202,11 @@ export default function FoodsPage() {
       <Box sx={{ display: "flex", alignItems: "flex-end", gap: 1.5 }}>
         <Box sx={{ flex: 1 }}>
           <Typography variant="h5" sx={{ fontWeight: 950 }}>
-            Alimentos
+            {t("Alimentos")}
           </Typography>
+
           <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-            Crea tu base de alimentos y reutilízalos al registrar comidas.
+            {t("Crea tu base de alimentos y reutilízalos al registrar comidas.")}
           </Typography>
         </Box>
 
@@ -150,17 +215,17 @@ export default function FoodsPage() {
           startIcon={<AddIcon />}
           onClick={openCreate}
         >
-          Nuevo
+          {t("Nuevo")}
         </Button>
       </Box>
 
-      {error && <Alert severity="error">{error}</Alert>}
+      {error && <Alert severity="error">{String(error)}</Alert>}
 
       <Card>
         <CardContent>
           <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
             <TextField
-              placeholder="Buscar alimento…"
+              placeholder={t("Buscar alimento…")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               InputProps={{
@@ -168,6 +233,7 @@ export default function FoodsPage() {
               }}
               fullWidth
             />
+
             <Chip
               label={`${filtered.length} / ${items.length}`}
               variant="outlined"
@@ -177,19 +243,28 @@ export default function FoodsPage() {
         </CardContent>
       </Card>
 
-      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, 1fr)" }, gap: 2 }}>
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", md: "repeat(2, 1fr)" },
+          gap: 2,
+        }}
+      >
         {loading && items.length === 0 ? (
           <Card>
             <CardContent>
-              <Typography color="text.secondary">Cargando…</Typography>
+              <Typography color="text.secondary">{t("Cargando…")}</Typography>
             </CardContent>
           </Card>
         ) : filtered.length === 0 ? (
           <Card>
             <CardContent>
-              <Typography sx={{ fontWeight: 900 }}>No hay alimentos todavía</Typography>
+              <Typography sx={{ fontWeight: 900 }}>
+                {t("No hay alimentos todavía")}
+              </Typography>
+
               <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-                Pulsa “Nuevo” para crear el primero.
+                {t("Pulsa “Nuevo” para crear el primero.")}
               </Typography>
             </CardContent>
           </Card>
@@ -202,14 +277,49 @@ export default function FoodsPage() {
                     <Typography variant="h6" sx={{ fontWeight: 950 }} noWrap>
                       {f.name}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                      {Number(f.calories ?? 0)} kcal · {Number(f.protein ?? 0)}g P · {Number(f.carbs ?? 0)}g HC · {Number(f.fat ?? 0)}g G
+
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ mt: 0.5 }}
+                    >
+                      {Number(f.calories ?? 0)} kcal ·{" "}
+                      {Number(f.protein ?? 0)}g P ·{" "}
+                      {Number(f.carbs ?? 0)}g HC ·{" "}
+                      {Number(f.fat ?? 0)}g G
                     </Typography>
+
+                    {f.allergens?.length > 0 && (
+                      <Stack
+                        direction="row"
+                        spacing={1}
+                        flexWrap="wrap"
+                        sx={{ mt: 1 }}
+                      >
+                        {f.allergens.map((a) => (
+                          <Chip
+                            key={a.id}
+                            size="small"
+                            color="warning"
+                            variant="outlined"
+                            label={t(a.name)}
+                          />
+                        ))}
+                      </Stack>
+                    )}
                   </Box>
-                  <IconButton onClick={() => openEdit(f)} aria-label="Editar">
+
+                  <IconButton
+                    onClick={() => openEdit(f)}
+                    aria-label={t("Editar")}
+                  >
                     <EditIcon />
                   </IconButton>
-                  <IconButton onClick={() => handleDelete(f)} aria-label="Borrar">
+
+                  <IconButton
+                    onClick={() => setDeleteTarget(f)}
+                    aria-label={t("Borrar")}
+                  >
                     <DeleteIcon />
                   </IconButton>
                 </Box>
@@ -221,16 +331,20 @@ export default function FoodsPage() {
 
       <Dialog open={dialogOpen} onClose={closeDialog} fullWidth maxWidth="sm">
         <DialogTitle sx={{ fontWeight: 950 }}>
-          {editing ? "Editar alimento" : "Nuevo alimento"}
+          {editing ? t("Editar alimento") : t("Nuevo alimento")}
         </DialogTitle>
+
         <DialogContent sx={{ pt: 1 }}>
           <Box sx={{ display: "grid", gap: 2, mt: 1 }}>
             <TextField
-              label="Nombre"
+              label={t("Nombre")}
               value={form.name}
-              onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+              onChange={(e) =>
+                setForm((p) => ({ ...p, name: e.target.value }))
+              }
               required
             />
+
             <Box
               sx={{
                 display: "grid",
@@ -239,43 +353,104 @@ export default function FoodsPage() {
               }}
             >
               <TextField
-                label="Calorías"
+                label={t("Calorías")}
                 type="number"
                 inputProps={{ step: "0.01" }}
                 value={form.calories}
-                onChange={(e) => setForm((p) => ({ ...p, calories: e.target.value }))}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, calories: e.target.value }))
+                }
               />
+
               <TextField
-                label="Proteína (g)"
+                label={t("Proteína (g)")}
                 type="number"
                 inputProps={{ step: "0.01" }}
                 value={form.protein}
-                onChange={(e) => setForm((p) => ({ ...p, protein: e.target.value }))}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, protein: e.target.value }))
+                }
               />
+
               <TextField
-                label="Carbohidratos (g)"
+                label={t("Carbohidratos (g)")}
                 type="number"
                 inputProps={{ step: "0.01" }}
                 value={form.carbs}
-                onChange={(e) => setForm((p) => ({ ...p, carbs: e.target.value }))}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, carbs: e.target.value }))
+                }
               />
+
               <TextField
-                label="Grasa (g)"
+                label={t("Grasa (g)")}
                 type="number"
                 inputProps={{ step: "0.01" }}
                 value={form.fat}
-                onChange={(e) => setForm((p) => ({ ...p, fat: e.target.value }))}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, fat: e.target.value }))
+                }
               />
+            </Box>
+
+            <Box>
+              <Typography sx={{ fontWeight: 800, mb: 1 }}>
+                {t("Alérgenos que contiene")}
+              </Typography>
+
+              {allergens.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  {t("No hay alérgenos cargados en el sistema.")}
+                </Typography>
+              ) : (
+                <Stack direction="row" spacing={1} flexWrap="wrap">
+                  {allergens.map((a) => {
+                    const selected = form.allergenIds?.includes(a.id);
+
+                    return (
+                      <Chip
+                        key={a.id}
+                        label={t(a.name)}
+                        clickable
+                        onClick={() => toggleAllergen(a.id)}
+                        color={selected ? "warning" : "default"}
+                        variant={selected ? "filled" : "outlined"}
+                      />
+                    );
+                  })}
+                </Stack>
+              )}
             </Box>
           </Box>
         </DialogContent>
+
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={closeDialog}>Cancelar</Button>
-          <Button variant="contained" onClick={handleSave} disabled={saving || !form.name.trim()}>
-            {saving ? "Guardando…" : "Guardar"}
+          <Button onClick={closeDialog}>{t("Cancelar")}</Button>
+
+          <Button
+            variant="contained"
+            onClick={handleSave}
+            disabled={saving || !form.name.trim()}
+          >
+            {saving ? t("Guardando…") : t("Guardar")}
           </Button>
         </DialogActions>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title={t("Eliminar alimento")}
+        message={
+          deleteTarget
+            ? `${t("¿Seguro que quieres borrar")} "${deleteTarget.name}"?`
+            : ""
+        }
+        confirmText={t("Eliminar")}
+        cancelText={t("Cancelar")}
+        loading={deleting}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+      />
     </Box>
   );
 }

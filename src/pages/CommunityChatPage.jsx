@@ -17,7 +17,8 @@ import SendIcon from "@mui/icons-material/Send";
 
 import AppLayout from "../components/AppLayout";
 import { useAuth } from "../context/AuthContext";
-import { connectCommunitySocket, getCommunityMessages } from "../api";
+import { API_BASE, connectCommunitySocket, getCommunityMessages } from "../api";
+import { useI18n } from "../i18n/I18nContext";
 
 function initials(name = "U") {
   const parts = String(name).trim().split(/\s+/).slice(0, 2);
@@ -44,8 +45,32 @@ function mergeMessages(current = [], incoming = []) {
   return sortMessages(Array.from(byId.values()));
 }
 
+function timeAgo(dateValue, t) {
+  if (!dateValue) return "";
+
+  const diff = Math.floor((Date.now() - new Date(dateValue).getTime()) / 1000);
+
+  if (diff < 60) return t("hace unos segundos");
+
+  const minutes = Math.floor(diff / 60);
+  if (minutes < 60) return `${t("hace")} ${minutes} ${minutes === 1 ? t("minuto") : t("minutos")}`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${t("hace")} ${hours} ${hours === 1 ? t("hora") : t("horas")}`;
+
+  const days = Math.floor(hours / 24);
+  return `${t("hace")} ${days} ${days === 1 ? t("día") : t("días")}`;
+}
+
+function isNearBottom(el) {
+  if (!el) return true;
+  return el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+}
+
 export default function CommunityChatPage() {
   const { token, user } = useAuth();
+
+  const { t } = useI18n();
 
   const roomId = "general";
   const [loading, setLoading] = useState(true);
@@ -73,11 +98,17 @@ export default function CommunityChatPage() {
       setMessages(sortMessages(Array.isArray(data) ? data : []));
       setTimeout(scrollToBottom, 50);
     } catch (e) {
-      setError(e?.message || "Error cargando chat");
+      setError(e?.message || t("Error cargando chat"));
     } finally {
       setLoading(false);
     }
   };
+
+  function avatarSrc(path) {
+    if (!path) return undefined;
+    if (path.startsWith("http")) return path;
+    return `${API_BASE}${path}`;
+  }
 
   const loadMore = async () => {
     if (!token || !oldestId || historyLoading) return;
@@ -101,7 +132,7 @@ export default function CommunityChatPage() {
         });
       }
     } catch (e) {
-      setError(e?.message || "Error cargando más mensajes");
+      setError(e?.message || t("Error cargando más mensajes"));
     } finally {
       setHistoryLoading(false);
     }
@@ -136,9 +167,15 @@ export default function CommunityChatPage() {
     ws.onmessage = (evt) => {
       try {
         const msg = JSON.parse(evt.data);
+
         if (msg.event === "message_created" && msg.data) {
+          const shouldScroll = isNearBottom(listRef.current);
+
           setMessages((prev) => mergeMessages(prev, [msg.data]));
-          setTimeout(scrollToBottom, 30);
+
+          if (shouldScroll) {
+            setTimeout(scrollToBottom, 30);
+          }
         }
       } catch {
         // ignore
@@ -162,24 +199,30 @@ export default function CommunityChatPage() {
       <Box sx={{ display: "grid", gap: 2.5 }}>
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 950 }}>
-            Comunidad · #{roomId}
+            {t("Comunidad")} · #{roomId}
           </Typography>
           <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-            Chat en tiempo real para compartir progreso, recetas y tips.
+            {t("Chat en tiempo real para compartir progreso, recetas y tips.")}
           </Typography>
         </Box>
 
-        {error && <Alert severity="error">{error}</Alert>}
+        {error && <Alert severity="error">{String(error)}</Alert>}
 
         <Card sx={{ height: { xs: "calc(100dvh - 180px)", md: "70vh" }, minHeight: 420, display: "flex", flexDirection: "column" }}>
           {loading && <LinearProgress />}
 
           <CardContent sx={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", p: 0 }}>
             <Box sx={{ px: 2, py: 1.5, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <Typography sx={{ fontWeight: 900 }}>Chat</Typography>
+              <Typography sx={{ fontWeight: 900 }}>{t("Chat")}</Typography>
               <Chip
                 size="small"
-                label={wsStatus === "open" ? "🟢 conectado" : wsStatus === "connecting" ? "🟡 conectando…" : "🔴 desconectado"}
+                label={
+                  wsStatus === "open"
+                    ? t("🟢 conectado")
+                    : wsStatus === "connecting"
+                      ? t("🟡 conectando…")
+                      : t("🔴 desconectado")
+                }
               />
             </Box>
 
@@ -187,11 +230,11 @@ export default function CommunityChatPage() {
 
             <Box
               ref={listRef}
-              sx={{ flex: 1, minHeight: 0, overflowY: "auto", px: 2, py: 2, display: "grid", gap: 1.25, overscrollBehavior: "contain" }}
+              sx={{ flex: 1, minHeight: 0, overflowY: "auto", px: 2, py: 2, display: "grid", gap: 1.75, overscrollBehavior: "contain" }}
             >
               <Box sx={{ display: "flex", justifyContent: "center" }}>
                 <Button size="small" variant="text" onClick={loadMore} disabled={historyLoading || !oldestId}>
-                  {historyLoading ? "Cargando…" : "Cargar mensajes anteriores"}
+                  {historyLoading ? t("Cargando…") : t("Cargar mensajes anteriores")}
                 </Button>
               </Box>
 
@@ -199,29 +242,100 @@ export default function CommunityChatPage() {
                 const mine = myId != null && String(m.user_id) === String(myId);
                 return (
                   <Box key={m.id} sx={{ display: "flex", gap: 1, justifyContent: mine ? "flex-end" : "flex-start" }}>
-                    {!mine && <Avatar sx={{ width: 32, height: 32 }}>{initials(m.user_name)}</Avatar>}
+                    {!mine && (
+                      <Avatar
+                        src={avatarSrc(m.user_profile_image_url)}
+                        sx={{
+                          width: 36,
+                          height: 36,
+                          boxShadow: "0 4px 10px rgba(0,0,0,0.12)",
+                        }}
+                      >
+                        {initials(m.user_name)}
+                      </Avatar>
+                    )}
 
                     <Box
                       sx={{
-                        maxWidth: "75%",
-                        borderRadius: 2,
-                        px: 1.5,
-                        py: 1,
-                        bgcolor: mine ? "action.selected" : "background.paper",
-                        border: "1px solid",
+                        maxWidth: { xs: "88%", md: "72%" },
+                        px: 2,
+                        py: 1.25,
+                        borderRadius: mine
+                          ? "20px 20px 6px 20px"
+                          : "20px 20px 20px 6px",
+
+                        bgcolor: mine
+                          ? "primary.main"
+                          : "background.paper",
+
+                        color: mine
+                          ? "primary.contrastText"
+                          : "text.primary",
+
+                        border: mine
+                          ? "none"
+                          : "1px solid",
+
                         borderColor: "divider",
+
+                        boxShadow: mine
+                          ? "0 6px 18px rgba(0,0,0,0.12)"
+                          : "0 2px 10px rgba(0,0,0,0.05)",
+
+                        backdropFilter: "blur(8px)",
+
+                        transition: "all .2s ease",
+
+                        "&:hover": {
+                          transform: "translateY(-1px)",
+                        },
                       }}
                     >
-                      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.25 }}>
-                        {mine ? "Tú" : m.user_name}
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          opacity: mine ? 0.75 : 0.65,
+                          fontWeight: 700,
+                          display: "block",
+                          mb: 0.4,
+                        }}
+                      >
+                        {mine ? t("Tú") : m.user_name}
                       </Typography>
-                      <Typography sx={{ whiteSpace: "pre-wrap" }}>{m.text}</Typography>
-                      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
-                        {m.created_at ? new Date(m.created_at).toLocaleString() : ""}
+                      <Typography
+                        sx={{
+                          whiteSpace: "pre-wrap",
+                          wordBreak: "break-word",
+                          lineHeight: 1.45,
+                          fontSize: "0.97rem",
+                        }}
+                      >{m.text}</Typography>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          display: "block",
+                          mt: 0.75,
+                          opacity: 0.6,
+                          textAlign: "right",
+                          fontSize: "0.72rem",
+                        }}
+                      >
+                        {timeAgo(m.created_at, t)}
                       </Typography>
                     </Box>
 
-                    {mine && <Avatar sx={{ width: 32, height: 32 }}>{initials(user?.name || "Tú")}</Avatar>}
+                    {mine && (
+                      <Avatar
+                        src={avatarSrc(user?.profile_image_url)}
+                        sx={{
+                          width: 36,
+                          height: 36,
+                          boxShadow: "0 4px 10px rgba(0,0,0,0.12)",
+                        }}
+                      >
+                        {initials(user?.name || t("Tú"))}
+                      </Avatar>
+                    )}
                   </Box>
                 );
               })}
@@ -234,7 +348,7 @@ export default function CommunityChatPage() {
             <Box sx={{ p: 2, display: "flex", gap: 1, alignItems: "center" }}>
               <TextField
                 fullWidth
-                placeholder="Escribe un mensaje…"
+                placeholder={t("Escribe un mensaje…")}
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 onKeyDown={(e) => {
@@ -246,7 +360,12 @@ export default function CommunityChatPage() {
                 multiline
                 maxRows={4}
               />
-              <IconButton color="primary" onClick={sendMessage} disabled={!text.trim() || wsStatus !== "open"}>
+              <IconButton
+                color="primary"
+                onClick={sendMessage}
+                disabled={!text.trim() || wsStatus !== "open"}
+                title={wsStatus !== "open" ? t("Chat desconectado") : t("Enviar")}
+              >
                 <SendIcon />
               </IconButton>
             </Box>

@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { listFoods, getMyAllergies } from "../api";
+import { useI18n } from "../i18n/I18nContext";
 
 export default function FoodPicker({
   token,
   valueFoodId,
   onChangeFoodId,
-  hideForbidden = false, // si true: oculta los prohibidos
+  hideForbidden = false,
 }) {
+  const { t } = useI18n();
+
   const [foods, setFoods] = useState([]);
   const [myAllergies, setMyAllergies] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -21,22 +24,22 @@ export default function FoodPicker({
         setError("");
 
         const [foodsData, allergiesData] = await Promise.all([
-          listFoods(token),
+          listFoods({ token }),
           getMyAllergies(token),
         ]);
 
-        setFoods(foodsData);
-        setMyAllergies(allergiesData);
+        setFoods(Array.isArray(foodsData) ? foodsData : []);
+        setMyAllergies(Array.isArray(allergiesData) ? allergiesData : []);
       } catch (err) {
         console.error(err);
-        setError(err.message || "Error cargando alimentos/alergias");
+        setError(err.message || t("Error cargando alimentos/alergias"));
       } finally {
         setLoading(false);
       }
     };
 
     load();
-  }, [token]);
+  }, [token, t]);
 
   const myAllergyIds = useMemo(
     () => new Set(myAllergies.map((a) => a.id)),
@@ -45,8 +48,12 @@ export default function FoodPicker({
 
   const foodsWithFlags = useMemo(() => {
     return foods.map((f) => {
-      const allergenList = f.allergens || []; // <-- importante
-      const conflicts = allergenList.filter((a) => myAllergyIds.has(a.id));
+      const allergenList = f.allergens || [];
+
+      const conflicts = allergenList.filter((a) =>
+        myAllergyIds.has(a.id)
+      );
+
       return {
         ...f,
         forbidden: conflicts.length > 0,
@@ -60,37 +67,58 @@ export default function FoodPicker({
     return foodsWithFlags.filter((f) => !f.forbidden);
   }, [foodsWithFlags, hideForbidden]);
 
-  if (loading) return <p>Cargando alimentos...</p>;
-  if (error) return <p className="error">{error}</p>;
+  if (loading) return <p>{t("Cargando alimentos...")}</p>;
+
+  if (error) {
+    return <p className="error">{String(error)}</p>;
+  }
 
   return (
     <div className="field">
-      <label>Selecciona un alimento</label>
+      <label>{t("Selecciona un alimento")}</label>
 
       <select
         value={valueFoodId || ""}
-        onChange={(e) => onChangeFoodId(e.target.value ? Number(e.target.value) : null)}
+        onChange={(e) =>
+          onChangeFoodId(
+            e.target.value ? Number(e.target.value) : null
+          )
+        }
         required
       >
-        <option value="">-- Elige --</option>
+        <option value="">
+          {t("-- Elige --")}
+        </option>
 
         {visibleFoods.map((f) => {
-          const disabled = !hideForbidden && f.forbidden; // si no los ocultas, los deshabilitas
-          const conflictsText = f.conflicts?.map((a) => a.name).join(", ");
+          const disabled =
+            !hideForbidden && f.forbidden;
+
+          const conflictsText = f.conflicts
+            ?.map((a) => t(a.name))
+            .join(", ");
 
           return (
-            <option key={f.id} value={f.id} disabled={disabled}>
+            <option
+              key={f.id}
+              value={f.id}
+              disabled={disabled}
+            >
               {f.name}
-              {f.forbidden ? ` (No permitido: ${conflictsText})` : ""}
+              {f.forbidden
+                ? ` (${t("No permitido")}: ${conflictsText})`
+                : ""}
             </option>
           );
         })}
       </select>
 
-      {/* Mensaje si el usuario tiene alergias */}
       {myAllergies.length > 0 && (
         <p style={{ marginTop: "8px", opacity: 0.85 }}>
-          Tus alergias: {myAllergies.map((a) => a.name).join(", ")}
+          {t("Tus alergias")}:{" "}
+          {myAllergies
+            .map((a) => t(a.name))
+            .join(", ")}
         </p>
       )}
     </div>

@@ -14,12 +14,14 @@ import {
 } from "@mui/material";
 import { registerUser } from "../api";
 import { useAuth } from "../context/AuthContext";
+import { useI18n } from "../i18n/I18nContext";
 
 export default function AuthPage() {
   const { login } = useAuth();
+  const { t } = useI18n();
   const navigate = useNavigate();
 
-  const [mode, setMode] = useState("login"); // login | register
+  const [mode, setMode] = useState("login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -28,20 +30,21 @@ export default function AuthPage() {
   const [ok, setOk] = useState("");
 
   const title = useMemo(
-    () => (mode === "login" ? "Iniciar sesión" : "Crear cuenta"),
-    [mode]
+    () => (mode === "login" ? t("Iniciar sesión") : t("Crear cuenta")),
+    [mode, t]
   );
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setOk("");
+
     try {
       setLoading(true);
 
       if (mode === "register") {
         await registerUser({ name, email, password });
-        setOk("Registro correcto. Ya puedes iniciar sesión.");
+        setOk(t("Registro correcto. Ya puedes iniciar sesión."));
         setMode("login");
         return;
       }
@@ -49,7 +52,7 @@ export default function AuthPage() {
       await login(email, password);
       navigate("/");
     } catch (err) {
-      setError(err?.message || "Error de autenticación");
+      setError(err?.message || t("Error de autenticación"));
     } finally {
       setLoading(false);
     }
@@ -70,8 +73,9 @@ export default function AuthPage() {
           <Typography variant="h3" sx={{ fontWeight: 950, letterSpacing: -1 }}>
             NutriTrace
           </Typography>
+
           <Typography color="text.secondary" sx={{ mt: 1 }}>
-            Seguimiento nutricional simple, rápido y bonito ✨
+            {t("Seguimiento nutricional simple, rápido y bonito ✨")}
           </Typography>
         </Box>
 
@@ -87,8 +91,8 @@ export default function AuthPage() {
               variant="fullWidth"
               sx={{ mb: 2 }}
             >
-              <Tab value="login" label="Entrar" />
-              <Tab value="register" label="Registrarse" />
+              <Tab value="login" label={t("Entrar")} />
+              <Tab value="register" label={t("Registrarse")} />
             </Tabs>
 
             <Typography variant="h6" sx={{ fontWeight: 900, mb: 2 }}>
@@ -98,23 +102,25 @@ export default function AuthPage() {
             <Box component="form" onSubmit={handleSubmit} sx={{ display: "grid", gap: 2 }}>
               {mode === "register" && (
                 <TextField
-                  label="Nombre"
+                  label={t("Nombre")}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   autoComplete="name"
                   required
                 />
               )}
+
               <TextField
-                label="Email"
+                label={t("Email")}
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
                 required
               />
+
               <TextField
-                label="Contraseña"
+                label={t("Contraseña")}
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -122,11 +128,11 @@ export default function AuthPage() {
                 required
               />
 
-              {error && <Alert severity="error">{error}</Alert>}
-              {ok && <Alert severity="success">{ok}</Alert>}
+              {error && <Alert severity="error">{t(error)}</Alert>}
+              {ok && <Alert severity="success">{t(ok)}</Alert>}
 
               <Button type="submit" variant="contained" size="large" disabled={loading}>
-                {loading ? "Cargando..." : title}
+                {loading ? t("Cargando...") : title}
               </Button>
             </Box>
           </CardContent>
