@@ -161,38 +161,54 @@ export default function CommunityChatPage() {
     if (!token) return;
 
     setWsStatus("connecting");
-    const ws = connectCommunitySocket({ token });
-    wsRef.current = ws;
+    let intentionalClose = false;
+    let ws = null;
 
-    ws.onopen = () => {
-      setWsStatus("open");
-      ws.send(JSON.stringify({ event: "join_room", data: { room_id: roomId } }));
-    };
+    const connectTimer = window.setTimeout(() => {
+      if (intentionalClose) return;
 
-    ws.onmessage = (evt) => {
-      try {
-        const msg = JSON.parse(evt.data);
+      ws = connectCommunitySocket({ token });
+      wsRef.current = ws;
 
-        if (msg.event === "message_created" && msg.data) {
-          const shouldScroll = isNearBottom(listRef.current);
+      ws.onopen = () => {
+        if (intentionalClose) return;
+        setWsStatus("open");
+        ws.send(JSON.stringify({ event: "join_room", data: { room_id: roomId } }));
+      };
 
-          setMessages((prev) => mergeMessages(prev, [msg.data]));
+      ws.onmessage = (evt) => {
+        try {
+          const msg = JSON.parse(evt.data);
 
-          if (shouldScroll) {
-            setTimeout(scrollToBottom, 30);
+          if (msg.event === "message_created" && msg.data) {
+            const shouldScroll = isNearBottom(listRef.current);
+
+            setMessages((prev) => mergeMessages(prev, [msg.data]));
+
+            if (shouldScroll) {
+              setTimeout(scrollToBottom, 30);
+            }
           }
+        } catch {
+          // ignore
         }
-      } catch {
-        // ignore
-      }
-    };
+      };
 
-    ws.onerror = () => setWsStatus("closed");
-    ws.onclose = () => setWsStatus("closed");
+      ws.onerror = () => {
+        if (!intentionalClose) setWsStatus("closed");
+      };
+      ws.onclose = () => {
+        if (!intentionalClose) setWsStatus("closed");
+      };
+    }, 150);
 
     return () => {
+      intentionalClose = true;
+      window.clearTimeout(connectTimer);
+
       try {
-        ws.close();
+        if (wsRef.current === ws) wsRef.current = null;
+        ws?.close();
       } catch {
         // ignore
       }
