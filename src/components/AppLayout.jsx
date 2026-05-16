@@ -38,11 +38,6 @@ import { API_BASE } from "../api";
 
 const drawerWidth = 280;
 
-function initials(name) {
-  const parts = (name || "U").trim().split(/\s+/);
-  return (parts[0]?.[0] || "U") + (parts[1]?.[0] || "");
-}
-
 export default function AppLayout({ children }) {
   const { user, logout } = useAuth();
   const { lang, setLang, t } = useI18n();
@@ -191,7 +186,16 @@ export default function AppLayout({ children }) {
         <Drawer
           open={open}
           onClose={() => setOpen(false)}
-          PaperProps={{ sx: { width: drawerWidth } }}
+          ModalProps={{ keepMounted: true }}
+          PaperProps={{
+            sx: {
+              width: drawerWidth,
+              top: { xs: 56, sm: 64 },
+              height: { xs: "calc(100dvh - 56px)", sm: "calc(100dvh - 64px)" },
+              boxSizing: "border-box",
+              borderTop: `1px solid ${theme.palette.divider}`,
+            },
+          }}
         >
           {drawer}
         </Drawer>
