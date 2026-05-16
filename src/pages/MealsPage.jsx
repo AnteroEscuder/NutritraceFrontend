@@ -38,22 +38,9 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../i18n/I18nContext";
 import ConfirmDialog from "../components/ConfirmDialog";
-
-function todayISO() {
-  const d = new Date();
-  const off = d.getTimezoneOffset();
-  const local = new Date(d.getTime() - off * 60 * 1000);
-  return local.toISOString().slice(0, 10);
-}
-
-function toNumber(v) {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
-}
-
-function round2(v) {
-  return Math.round(v * 100) / 100;
-}
+import PageHero from "../components/PageHero";
+import MetricCard from "../components/MetricCard";
+import { round2, toNumber, todayISO } from "../utils/format";
 
 export default function MealsPage() {
   const { token, user } = useAuth();
@@ -247,69 +234,37 @@ export default function MealsPage() {
 
   return (
     <Box sx={{ display: "grid", gap: 2.5 }}>
-      <Card
-        sx={{
-          overflow: "hidden",
-          border: `1px solid ${alpha(theme.palette.primary.main, 0.14)}`,
-          boxShadow: `0 18px 46px ${alpha(theme.palette.common.black, 0.07)}`,
-        }}
-      >
-        <CardContent
-          sx={{
-            p: { xs: 2.25, md: 3 },
-            background:
-              theme.palette.mode === "dark"
-                ? `linear-gradient(135deg, ${alpha(theme.palette.primary.dark, 0.24)}, ${alpha(theme.palette.background.paper, 0.9)})`
-                : `linear-gradient(135deg, ${alpha(theme.palette.primary.light, 0.18)}, ${alpha(theme.palette.success.light, 0.1)})`,
-          }}
-        >
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: { xs: "1fr", md: "1fr auto" },
-              gap: 2,
-              alignItems: "start",
-            }}
-          >
-            <Box sx={{ minWidth: 0 }}>
-              <Chip
-                icon={<RestaurantIcon />}
-                label={t("Registro diario")}
-                color="primary"
-                sx={{ fontWeight: 850, mb: 2 }}
-              />
-              <Typography variant="h4" sx={{ fontWeight: 950, letterSpacing: 0, lineHeight: 1.08 }}>
-                {t("Comidas")}
-              </Typography>
-              <Typography color="text.secondary" sx={{ mt: 1, maxWidth: 620 }}>
-                {t("Registra lo que comes y revisa el total diario.")}
-              </Typography>
-            </Box>
+      <PageHero
+        chipIcon={<RestaurantIcon />}
+        chipLabel={t("Registro diario")}
+        title={t("Comidas")}
+        subtitle={t("Registra lo que comes y revisa el total diario.")}
+        accent="primary"
+        secondaryAccent="success"
+        actions={
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25} sx={{ alignItems: { sm: "center" } }}>
+            <TextField
+              label={t("Día")}
+              type="date"
+              value={day}
+              onChange={(e) => setDay(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              size="small"
+              sx={{ minWidth: { xs: "100%", sm: 180 }, bgcolor: "background.paper", borderRadius: 2 }}
+            />
 
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25} sx={{ alignItems: { sm: "center" } }}>
-              <TextField
-                label={t("Día")}
-                type="date"
-                value={day}
-                onChange={(e) => setDay(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-                size="small"
-                sx={{ minWidth: { xs: "100%", sm: 180 }, bgcolor: "background.paper", borderRadius: 2 }}
-              />
-
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={openCreate}
-                disabled={foods.length === 0}
-                sx={{ height: 40, fontWeight: 900 }}
-              >
-                {t("Añadir")}
-              </Button>
-            </Stack>
-          </Box>
-        </CardContent>
-      </Card>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={openCreate}
+              disabled={foods.length === 0}
+              sx={{ height: 40, fontWeight: 900 }}
+            >
+              {t("Añadir")}
+            </Button>
+          </Stack>
+        }
+      />
 
       {foods.length === 0 && (
         <Alert severity="info">
@@ -328,10 +283,10 @@ export default function MealsPage() {
           gap: 2,
         }}
       >
-        <MealMetric icon={<LocalFireDepartmentIcon />} label={t("Calorías")} value={`${totals.calories} kcal`} color="error" />
-        <MealMetric icon={<RestaurantIcon />} label={t("Comidas")} value={meals.length} color="primary" />
-        <MealMetric icon={<ScaleIcon />} label={t("Cantidad total")} value={`${mealStats.totalQuantity} g`} color="success" />
-        <MealMetric icon={<WarningAmberIcon />} label={t("Alertas")} value={mealStats.allergenMatches} color="warning" />
+        <MetricCard icon={<LocalFireDepartmentIcon />} label={t("Calorías")} value={`${totals.calories} kcal`} color="error" />
+        <MetricCard icon={<RestaurantIcon />} label={t("Comidas")} value={meals.length} color="primary" />
+        <MetricCard icon={<ScaleIcon />} label={t("Cantidad total")} value={`${mealStats.totalQuantity} g`} color="success" />
+        <MetricCard icon={<WarningAmberIcon />} label={t("Alertas")} value={mealStats.allergenMatches} color="warning" />
       </Box>
 
       <Card>
@@ -554,25 +509,5 @@ export default function MealsPage() {
         onConfirm={remove}
       />
     </Box>
-  );
-}
-
-function MealMetric({ icon, label, value, color = "primary" }) {
-  return (
-    <Card>
-      <CardContent sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-        <Avatar sx={{ bgcolor: (theme) => alpha(theme.palette[color].main, 0.12), color: `${color}.main` }}>
-          {icon}
-        </Avatar>
-        <Box sx={{ minWidth: 0 }}>
-          <Typography variant="caption" color="text.secondary">
-            {label}
-          </Typography>
-          <Typography sx={{ fontWeight: 950 }} noWrap>
-            {value}
-          </Typography>
-        </Box>
-      </CardContent>
-    </Card>
   );
 }

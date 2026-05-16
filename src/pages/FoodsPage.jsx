@@ -36,11 +36,9 @@ import {
 } from "../api";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../i18n/I18nContext";
-
-function toNumber(v) {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
-}
+import PageHero from "../components/PageHero";
+import MetricCard from "../components/MetricCard";
+import { toNumber } from "../utils/format";
 
 function emptyForm() {
   return {
@@ -216,57 +214,25 @@ export default function FoodsPage() {
 
   return (
     <Box sx={{ display: "grid", gap: 2.5 }}>
-      <Card
-        sx={{
-          overflow: "hidden",
-          border: `1px solid ${alpha(theme.palette.primary.main, 0.14)}`,
-          boxShadow: `0 18px 46px ${alpha(theme.palette.common.black, 0.07)}`,
-        }}
-      >
-        <CardContent
-          sx={{
-            p: { xs: 2.25, md: 3 },
-            background:
-              theme.palette.mode === "dark"
-                ? `linear-gradient(135deg, ${alpha(theme.palette.secondary.dark, 0.24)}, ${alpha(theme.palette.background.paper, 0.9)})`
-                : `linear-gradient(135deg, ${alpha(theme.palette.secondary.light, 0.18)}, ${alpha(theme.palette.primary.light, 0.1)})`,
-          }}
-        >
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: { xs: "1fr", sm: "1fr auto" },
-              gap: 2,
-              alignItems: "start",
-            }}
+      <PageHero
+        chipIcon={<Inventory2Icon />}
+        chipLabel={t("Base nutricional")}
+        chipColor="secondary"
+        title={t("Alimentos")}
+        subtitle={t("Crea tu base de alimentos y reutilízalos al registrar comidas.")}
+        accent="secondary"
+        secondaryAccent="primary"
+        actions={
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={openCreate}
+            sx={{ height: 42, fontWeight: 900 }}
           >
-            <Box sx={{ minWidth: 0 }}>
-              <Chip
-                icon={<Inventory2Icon />}
-                label={t("Base nutricional")}
-                color="secondary"
-                sx={{ fontWeight: 850, mb: 2 }}
-              />
-              <Typography variant="h4" sx={{ fontWeight: 950, letterSpacing: 0, lineHeight: 1.08 }}>
-                {t("Alimentos")}
-              </Typography>
-
-              <Typography color="text.secondary" sx={{ mt: 1, maxWidth: 640 }}>
-                {t("Crea tu base de alimentos y reutilízalos al registrar comidas.")}
-              </Typography>
-            </Box>
-
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={openCreate}
-              sx={{ height: 42, fontWeight: 900 }}
-            >
-              {t("Nuevo")}
-            </Button>
-          </Box>
-        </CardContent>
-      </Card>
+            {t("Nuevo")}
+          </Button>
+        }
+      />
 
       {error && <Alert severity="error">{String(error)}</Alert>}
 
@@ -277,10 +243,10 @@ export default function FoodsPage() {
           gap: 2,
         }}
       >
-        <FoodMetric icon={<Inventory2Icon />} label={t("Alimentos")} value={items.length} color="primary" />
-        <FoodMetric icon={<SearchIcon />} label={t("Resultados")} value={filtered.length} color="secondary" />
-        <FoodMetric icon={<LocalFireDepartmentIcon />} label={t("Media kcal")} value={`${foodStats.avgCalories} kcal`} color="error" />
-        <FoodMetric icon={<ShieldIcon />} label={t("Con alérgenos")} value={foodStats.withAllergens} color="warning" />
+        <MetricCard icon={<Inventory2Icon />} label={t("Alimentos")} value={items.length} color="primary" />
+        <MetricCard icon={<SearchIcon />} label={t("Resultados")} value={filtered.length} color="secondary" />
+        <MetricCard icon={<LocalFireDepartmentIcon />} label={t("Media kcal")} value={`${foodStats.avgCalories} kcal`} color="error" />
+        <MetricCard icon={<ShieldIcon />} label={t("Con alérgenos")} value={foodStats.withAllergens} color="warning" />
       </Box>
 
       <Card>
@@ -517,25 +483,5 @@ export default function FoodsPage() {
         onConfirm={handleDelete}
       />
     </Box>
-  );
-}
-
-function FoodMetric({ icon, label, value, color = "primary" }) {
-  return (
-    <Card>
-      <CardContent sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-        <Avatar sx={{ bgcolor: (theme) => alpha(theme.palette[color].main, 0.12), color: `${color}.main` }}>
-          {icon}
-        </Avatar>
-        <Box sx={{ minWidth: 0 }}>
-          <Typography variant="caption" color="text.secondary">
-            {label}
-          </Typography>
-          <Typography sx={{ fontWeight: 950 }} noWrap>
-            {value}
-          </Typography>
-        </Box>
-      </CardContent>
-    </Card>
   );
 }

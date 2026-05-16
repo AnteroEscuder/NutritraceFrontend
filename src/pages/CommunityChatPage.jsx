@@ -21,6 +21,7 @@ import SendIcon from "@mui/icons-material/Send";
 import WifiIcon from "@mui/icons-material/Wifi";
 
 import AppLayout from "../components/AppLayout";
+import PageHero from "../components/PageHero";
 import { useAuth } from "../context/AuthContext";
 import { API_BASE, connectCommunitySocket, getCommunityMessages } from "../api";
 import { useI18n } from "../i18n/I18nContext";
@@ -201,62 +202,28 @@ export default function CommunityChatPage() {
   return (
     <AppLayout>
       <Box sx={{ display: "grid", gap: 2.5 }}>
-        <Card
-          sx={{
-            overflow: "hidden",
-            border: `1px solid ${alpha(theme.palette.primary.main, 0.14)}`,
-            boxShadow: `0 18px 46px ${alpha(theme.palette.common.black, 0.07)}`,
-          }}
-        >
-          <CardContent
-            sx={{
-              p: { xs: 2.25, md: 3 },
-              background:
-                theme.palette.mode === "dark"
-                  ? `linear-gradient(135deg, ${alpha(theme.palette.primary.dark, 0.28)}, ${alpha(theme.palette.background.paper, 0.9)})`
-                  : `linear-gradient(135deg, ${alpha(theme.palette.primary.light, 0.18)}, ${alpha(theme.palette.secondary.light, 0.1)})`,
-            }}
-          >
-            <Box
-              sx={{
-                display: "grid",
-                gridTemplateColumns: { xs: "1fr", sm: "1fr auto" },
-                gap: 2,
-                alignItems: "start",
-              }}
-            >
-              <Box sx={{ minWidth: 0 }}>
-                <Chip
-                  icon={<ForumIcon />}
-                  label={t("Espacio comunitario")}
-                  color="primary"
-                  sx={{ fontWeight: 850, mb: 2 }}
-                />
-                <Typography variant="h4" sx={{ fontWeight: 950, letterSpacing: 0, lineHeight: 1.08 }}>
-                  {t("Comunidad")} · #{roomId}
-                </Typography>
-                <Typography color="text.secondary" sx={{ mt: 1, maxWidth: 650 }}>
-                  {t("Chat en tiempo real para compartir progreso, recetas y tips.")}
-                </Typography>
-              </Box>
-
-              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap justifyContent={{ sm: "flex-end" }}>
-                <Chip icon={<GroupsIcon />} label={`${messages.length} ${t("mensajes")}`} variant="outlined" />
-                <Chip
-                  icon={<WifiIcon />}
-                  color={wsStatus === "open" ? "success" : wsStatus === "connecting" ? "warning" : "error"}
-                  label={
-                    wsStatus === "open"
-                      ? t("conectado")
-                      : wsStatus === "connecting"
-                        ? t("conectando…")
-                        : t("desconectado")
-                  }
-                />
-              </Stack>
-            </Box>
-          </CardContent>
-        </Card>
+        <PageHero
+          chipIcon={<ForumIcon />}
+          chipLabel={t("Espacio comunitario")}
+          title={`${t("Comunidad")} · #${roomId}`}
+          subtitle={t("Chat en tiempo real para compartir progreso, recetas y tips.")}
+          actions={
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap justifyContent={{ sm: "flex-end" }}>
+              <Chip icon={<GroupsIcon />} label={`${messages.length} ${t("mensajes")}`} variant="outlined" />
+              <Chip
+                icon={<WifiIcon />}
+                color={wsStatus === "open" ? "success" : wsStatus === "connecting" ? "warning" : "error"}
+                label={
+                  wsStatus === "open"
+                    ? t("conectado")
+                    : wsStatus === "connecting"
+                      ? t("conectando…")
+                      : t("desconectado")
+                }
+              />
+            </Stack>
+          }
+        />
 
         {error && <Alert severity="error">{String(error)}</Alert>}
 

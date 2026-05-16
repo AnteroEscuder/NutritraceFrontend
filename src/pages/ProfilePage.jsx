@@ -32,6 +32,7 @@ import SpaIcon from "@mui/icons-material/Spa";
 import LunchDiningIcon from "@mui/icons-material/LunchDining";
 
 import AppLayout from "../components/AppLayout";
+import MetricCard from "../components/MetricCard";
 import { useAuth } from "../context/AuthContext";
 import {
   API_BASE,
@@ -385,9 +386,9 @@ export default function ProfilePage() {
               gap: 2,
             }}
           >
-            <ProfileMetric icon={<AccountCircleIcon />} label={t("Perfil")} value={user?.name || t("Usuario")} color="primary" />
-            <ProfileMetric icon={<AllergyIcon />} label={t("Alergias seleccionadas")} value={selectedCount} color="secondary" />
-            <ProfileMetric icon={<LabelIcon />} label={t("Sin marcar")} value={safeAllergens} color="success" />
+            <MetricCard icon={<AccountCircleIcon />} label={t("Perfil")} value={user?.name || t("Usuario")} color="primary" />
+            <MetricCard icon={<AllergyIcon />} label={t("Alergias seleccionadas")} value={selectedCount} color="secondary" />
+            <MetricCard icon={<LabelIcon />} label={t("Sin marcar")} value={safeAllergens} color="success" />
           </Box>
 
           <Card sx={{ mt: 2 }}>
@@ -542,25 +543,5 @@ export default function ProfilePage() {
         </Stack>
       </Box>
     </AppLayout>
-  );
-}
-
-function ProfileMetric({ icon, label, value, color = "primary" }) {
-  return (
-    <Card>
-      <CardContent sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-        <Avatar sx={{ bgcolor: (theme) => alpha(theme.palette[color].main, 0.12), color: `${color}.main` }}>
-          {icon}
-        </Avatar>
-        <Box sx={{ minWidth: 0 }}>
-          <Typography variant="caption" color="text.secondary">
-            {label}
-          </Typography>
-          <Typography sx={{ fontWeight: 950 }} noWrap>
-            {value}
-          </Typography>
-        </Box>
-      </CardContent>
-    </Card>
   );
 }

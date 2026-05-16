@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Avatar,
   Box,
-  Button,
   Card,
   CardContent,
   Chip,
@@ -23,16 +22,11 @@ import RestaurantIcon from "@mui/icons-material/Restaurant";
 import ShowChartIcon from "@mui/icons-material/ShowChart";
 import StatCard from "../components/StatCard";
 import Sparkline from "../components/Sparkline";
+import AppDatePicker from "../components/AppDatePicker";
 import { getDailySummary, getGoal } from "../api";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../i18n/I18nContext";
-
-function todayISO() {
-  const d = new Date();
-  const off = d.getTimezoneOffset();
-  const local = new Date(d.getTime() - off * 60 * 1000);
-  return local.toISOString().slice(0, 10);
-}
+import { formatDateLabel, formatNumber, todayISO } from "../utils/format";
 
 function safeRatio(x) {
   const n = Number(x);
@@ -42,24 +36,6 @@ function safeRatio(x) {
 
 function clampPercent(value) {
   return Math.max(0, Math.min(100, Math.round(value)));
-}
-
-function formatNumber(value, digits = 0) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return "0";
-  return new Intl.NumberFormat("es-ES", { maximumFractionDigits: digits }).format(n);
-}
-
-function formatDateLabel(value, lang) {
-  if (!value) return "";
-  const [year, month, day] = value.split("-").map(Number);
-  const date = new Date(year, month - 1, day);
-
-  return new Intl.DateTimeFormat(lang === "en" ? "en-US" : "es-ES", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-  }).format(date);
 }
 
 export default function DashboardPage() {
@@ -240,13 +216,14 @@ export default function DashboardPage() {
                   mb: { xs: 1, md: 0 },
                 }}
               >
-                <DashboardDatePicker
+                <AppDatePicker
                   value={day}
                   onChange={setDay}
                   label={t("Fecha de análisis")}
                   todayLabel={t("Hoy")}
                   selectLabel={t("Seleccionar fecha")}
                   formattedValue={formatDateLabel(day, lang)}
+                  todayValue={todayISO()}
                   isToday={day === todayISO()}
                 />
               </Box>
@@ -672,141 +649,6 @@ function MiniMetric({ icon, label, value }) {
           {value}
         </Typography>
       </Box>
-    </Box>
-  );
-}
-
-function DashboardDatePicker({
-  value,
-  onChange,
-  label,
-  todayLabel,
-  selectLabel,
-  formattedValue,
-  isToday,
-}) {
-  const theme = useTheme();
-  const inputRef = useRef(null);
-
-  const openNativePicker = () => {
-    const input = inputRef.current;
-    if (!input) return;
-
-    input.focus();
-    if (typeof input.showPicker === "function") {
-      input.showPicker();
-      return;
-    }
-
-    input.click();
-  };
-
-  return (
-    <Box
-      sx={{
-        width: { xs: "100%", sm: 276 },
-        ml: { sm: "auto" },
-        alignSelf: "flex-start",
-        position: "relative",
-        display: "flex",
-        alignItems: "center",
-        gap: 1.25,
-        p: 1,
-        borderRadius: 3,
-        color: "common.white",
-        bgcolor: alpha(theme.palette.common.black, 0.28),
-        border: `1px solid ${alpha(theme.palette.common.white, 0.18)}`,
-        boxShadow: `0 10px 26px ${alpha(theme.palette.common.black, 0.18)}`,
-        backdropFilter: "blur(10px)",
-      }}
-    >
-      <Box
-        component="button"
-        type="button"
-        onClick={openNativePicker}
-        sx={{
-          appearance: "none",
-          border: 0,
-          p: 0,
-          m: 0,
-          bgcolor: "transparent",
-          cursor: "pointer",
-          font: "inherit",
-          display: "flex",
-          alignItems: "center",
-          gap: 1.25,
-          minWidth: 0,
-          flex: 1,
-          textAlign: "left",
-        }}
-      >
-        <Box
-          sx={{
-            width: 42,
-            height: 42,
-            borderRadius: 2.25,
-            display: "grid",
-            placeItems: "center",
-            flexShrink: 0,
-            color: "common.white",
-            bgcolor: alpha(theme.palette.common.white, 0.14),
-          }}
-        >
-          <CalendarTodayIcon fontSize="small" />
-        </Box>
-
-        <Box sx={{ minWidth: 0, flex: 1 }}>
-          <Typography
-            variant="caption"
-            sx={{
-              color: alpha(theme.palette.common.white, 0.76),
-              display: "block",
-              lineHeight: 1.1,
-            }}
-          >
-            {label}
-          </Typography>
-          <Typography sx={{ color: "common.white", fontWeight: 950, textTransform: "capitalize" }} noWrap>
-            {formattedValue}
-          </Typography>
-        </Box>
-      </Box>
-
-      <Button
-        size="small"
-        variant={isToday ? "contained" : "outlined"}
-        onClick={() => onChange(todayISO())}
-        sx={{
-          minWidth: 56,
-          borderRadius: 2,
-          fontWeight: 900,
-          px: 1.25,
-          color: isToday ? "primary.contrastText" : "common.white",
-          borderColor: alpha(theme.palette.common.white, 0.42),
-          "&:hover": {
-            borderColor: alpha(theme.palette.common.white, 0.72),
-            bgcolor: isToday ? undefined : alpha(theme.palette.common.white, 0.1),
-          },
-        }}
-      >
-        {todayLabel}
-      </Button>
-
-      <Box
-        component="input"
-        ref={inputRef}
-        aria-label={selectLabel}
-        type="date"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        sx={{
-          position: "absolute",
-          width: 1,
-          height: 1,
-          opacity: 0,
-          pointerEvents: "none",
-        }}
-      />
     </Box>
   );
 }
