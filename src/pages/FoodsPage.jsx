@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
+  Avatar,
   Box,
   Button,
   Card,
@@ -15,10 +16,15 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { alpha, useTheme } from "@mui/material/styles";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
+import Inventory2Icon from "@mui/icons-material/Inventory2";
+import LocalFireDepartmentIcon from "@mui/icons-material/LocalFireDepartment";
+import NoMealsIcon from "@mui/icons-material/NoMeals";
 import SearchIcon from "@mui/icons-material/Search";
+import ShieldIcon from "@mui/icons-material/Shield";
 import ConfirmDialog from "../components/ConfirmDialog";
 
 import {
@@ -50,6 +56,7 @@ function emptyForm() {
 export default function FoodsPage() {
   const { token } = useAuth();
   const { t } = useI18n();
+  const theme = useTheme();
 
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
@@ -70,6 +77,16 @@ export default function FoodsPage() {
     if (!q) return items;
     return items.filter((f) => (f.name || "").toLowerCase().includes(q));
   }, [items, search]);
+
+  const foodStats = useMemo(() => {
+    const withAllergens = items.filter((item) => item.allergens?.length > 0).length;
+    const avgCalories = items.length
+      ? Math.round(items.reduce((sum, item) => sum + toNumber(item.calories), 0) / items.length)
+      : 0;
+    const highProtein = items.filter((item) => toNumber(item.protein) >= 15).length;
+
+    return { withAllergens, avgCalories, highProtein };
+  }, [items]);
 
   const load = async () => {
     if (!token) return;
@@ -199,31 +216,76 @@ export default function FoodsPage() {
 
   return (
     <Box sx={{ display: "grid", gap: 2.5 }}>
-      <Box sx={{ display: "flex", alignItems: "flex-end", gap: 1.5 }}>
-        <Box sx={{ flex: 1 }}>
-          <Typography variant="h5" sx={{ fontWeight: 950 }}>
-            {t("Alimentos")}
-          </Typography>
-
-          <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-            {t("Crea tu base de alimentos y reutilízalos al registrar comidas.")}
-          </Typography>
-        </Box>
-
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={openCreate}
+      <Card
+        sx={{
+          overflow: "hidden",
+          border: `1px solid ${alpha(theme.palette.primary.main, 0.14)}`,
+          boxShadow: `0 18px 46px ${alpha(theme.palette.common.black, 0.07)}`,
+        }}
+      >
+        <CardContent
+          sx={{
+            p: { xs: 2.25, md: 3 },
+            background:
+              theme.palette.mode === "dark"
+                ? `linear-gradient(135deg, ${alpha(theme.palette.secondary.dark, 0.24)}, ${alpha(theme.palette.background.paper, 0.9)})`
+                : `linear-gradient(135deg, ${alpha(theme.palette.secondary.light, 0.18)}, ${alpha(theme.palette.primary.light, 0.1)})`,
+          }}
         >
-          {t("Nuevo")}
-        </Button>
-      </Box>
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", sm: "1fr auto" },
+              gap: 2,
+              alignItems: "start",
+            }}
+          >
+            <Box sx={{ minWidth: 0 }}>
+              <Chip
+                icon={<Inventory2Icon />}
+                label={t("Base nutricional")}
+                color="secondary"
+                sx={{ fontWeight: 850, mb: 2 }}
+              />
+              <Typography variant="h4" sx={{ fontWeight: 950, letterSpacing: 0, lineHeight: 1.08 }}>
+                {t("Alimentos")}
+              </Typography>
+
+              <Typography color="text.secondary" sx={{ mt: 1, maxWidth: 640 }}>
+                {t("Crea tu base de alimentos y reutilízalos al registrar comidas.")}
+              </Typography>
+            </Box>
+
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={openCreate}
+              sx={{ height: 42, fontWeight: 900 }}
+            >
+              {t("Nuevo")}
+            </Button>
+          </Box>
+        </CardContent>
+      </Card>
 
       {error && <Alert severity="error">{String(error)}</Alert>}
 
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", lg: "repeat(4, 1fr)" },
+          gap: 2,
+        }}
+      >
+        <FoodMetric icon={<Inventory2Icon />} label={t("Alimentos")} value={items.length} color="primary" />
+        <FoodMetric icon={<SearchIcon />} label={t("Resultados")} value={filtered.length} color="secondary" />
+        <FoodMetric icon={<LocalFireDepartmentIcon />} label={t("Media kcal")} value={`${foodStats.avgCalories} kcal`} color="error" />
+        <FoodMetric icon={<ShieldIcon />} label={t("Con alérgenos")} value={foodStats.withAllergens} color="warning" />
+      </Box>
+
       <Card>
-        <CardContent>
-          <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
+        <CardContent sx={{ p: { xs: 2.25, md: 3 } }}>
+          <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} alignItems={{ md: "center" }}>
             <TextField
               placeholder={t("Buscar alimento…")}
               value={search}
@@ -234,11 +296,8 @@ export default function FoodsPage() {
               fullWidth
             />
 
-            <Chip
-              label={`${filtered.length} / ${items.length}`}
-              variant="outlined"
-              sx={{ alignSelf: { xs: "flex-start", md: "center" } }}
-            />
+            <Chip label={`${filtered.length} / ${items.length}`} variant="outlined" sx={{ alignSelf: { xs: "flex-start", md: "center" } }} />
+            <Chip label={`${foodStats.highProtein} ${t("altos en proteína")}`} color="primary" variant="outlined" sx={{ alignSelf: { xs: "flex-start", md: "center" } }} />
           </Stack>
         </CardContent>
       </Card>
@@ -270,31 +329,41 @@ export default function FoodsPage() {
           </Card>
         ) : (
           filtered.map((f) => (
-            <Card key={f.id}>
-              <CardContent>
-                <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
+            <Card
+              key={f.id}
+              sx={{
+                border: `1px solid ${alpha(theme.palette.divider, 0.9)}`,
+                transition: "transform 160ms ease, box-shadow 160ms ease",
+                "&:hover": {
+                  transform: "translateY(-2px)",
+                  boxShadow: `0 14px 34px ${alpha(theme.palette.common.black, 0.09)}`,
+                },
+              }}
+            >
+              <CardContent sx={{ p: { xs: 2, md: 2.5 } }}>
+                <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
+                  <Avatar sx={{ bgcolor: alpha(theme.palette.secondary.main, 0.12), color: "secondary.main" }}>
+                    <NoMealsIcon />
+                  </Avatar>
                   <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Typography variant="h6" sx={{ fontWeight: 950 }} noWrap>
                       {f.name}
                     </Typography>
 
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{ mt: 0.5 }}
-                    >
-                      {Number(f.calories ?? 0)} kcal ·{" "}
-                      {Number(f.protein ?? 0)}g P ·{" "}
-                      {Number(f.carbs ?? 0)}g HC ·{" "}
-                      {Number(f.fat ?? 0)}g G
-                    </Typography>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
+                      <Chip size="small" label={`${Number(f.calories ?? 0)} kcal`} color="error" variant="outlined" />
+                      <Chip size="small" label={`${Number(f.protein ?? 0)}g P`} color="primary" variant="outlined" />
+                      <Chip size="small" label={`${Number(f.carbs ?? 0)}g HC`} color="secondary" variant="outlined" />
+                      <Chip size="small" label={`${Number(f.fat ?? 0)}g G`} color="warning" variant="outlined" />
+                    </Stack>
 
                     {f.allergens?.length > 0 && (
                       <Stack
                         direction="row"
                         spacing={1}
+                        useFlexGap
                         flexWrap="wrap"
-                        sx={{ mt: 1 }}
+                        sx={{ mt: 1.25 }}
                       >
                         {f.allergens.map((a) => (
                           <Chip
@@ -309,19 +378,15 @@ export default function FoodsPage() {
                     )}
                   </Box>
 
-                  <IconButton
-                    onClick={() => openEdit(f)}
-                    aria-label={t("Editar")}
-                  >
-                    <EditIcon />
-                  </IconButton>
+                  <Stack direction="row" spacing={0.5}>
+                    <IconButton onClick={() => openEdit(f)} aria-label={t("Editar")}>
+                      <EditIcon />
+                    </IconButton>
 
-                  <IconButton
-                    onClick={() => setDeleteTarget(f)}
-                    aria-label={t("Borrar")}
-                  >
-                    <DeleteIcon />
-                  </IconButton>
+                    <IconButton onClick={() => setDeleteTarget(f)} aria-label={t("Borrar")}>
+                      <DeleteIcon />
+                    </IconButton>
+                  </Stack>
                 </Box>
               </CardContent>
             </Card>
@@ -452,5 +517,25 @@ export default function FoodsPage() {
         onConfirm={handleDelete}
       />
     </Box>
+  );
+}
+
+function FoodMetric({ icon, label, value, color = "primary" }) {
+  return (
+    <Card>
+      <CardContent sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+        <Avatar sx={{ bgcolor: (theme) => alpha(theme.palette[color].main, 0.12), color: `${color}.main` }}>
+          {icon}
+        </Avatar>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant="caption" color="text.secondary">
+            {label}
+          </Typography>
+          <Typography sx={{ fontWeight: 950 }} noWrap>
+            {value}
+          </Typography>
+        </Box>
+      </CardContent>
+    </Card>
   );
 }

@@ -17,7 +17,11 @@ import {
   DialogActions,
   TextField,
 } from "@mui/material";
+import { alpha, useTheme } from "@mui/material/styles";
 
+import AccountCircleIcon from "@mui/icons-material/AccountCircle";
+import AllergyIcon from "@mui/icons-material/Sick";
+import CameraAltIcon from "@mui/icons-material/CameraAlt";
 import LabelIcon from "@mui/icons-material/Label";
 import GrainIcon from "@mui/icons-material/Grain";
 import EggAltIcon from "@mui/icons-material/EggAlt";
@@ -55,6 +59,7 @@ function allergenIcon(name) {
 export default function ProfilePage() {
   const { user, token, setUser } = useAuth();
   const { t } = useI18n();
+  const theme = useTheme();
 
   const [allergens, setAllergens] = useState([]);
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -79,6 +84,7 @@ export default function ProfilePage() {
 
   const selectedCount = selectedIds.size;
   const selectedArray = useMemo(() => Array.from(selectedIds), [selectedIds]);
+  const safeAllergens = Math.max(0, allergens.length - selectedCount);
 
   useEffect(() => {
     setProfileForm({
@@ -240,47 +246,90 @@ export default function ProfilePage() {
     <AppLayout>
       <Box sx={{ maxWidth: 1100, mx: "auto" }}>
         <Stack spacing={2.5}>
-          <Box>
-            <Typography variant="h5">{t("Cuenta")}</Typography>
-
-            <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-              {t("Gestiona tu perfil y selecciona tus alergias para que NutriTrace pueda avisarte.")}
-            </Typography>
-
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
-              {t("Sesión iniciada como")} <b>{user?.name || t("Usuario")}</b>
-              {user?.email ? ` · ${user.email}` : ""}
-            </Typography>
-
-            <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 2 }}>
-              <Avatar
-                src={
-                  user?.profile_image_url
-                    ? `${API_BASE}${user.profile_image_url}`
-                    : undefined
-                }
-                sx={{ width: 80, height: 80 }}
+          <Card
+            sx={{
+              overflow: "hidden",
+              border: `1px solid ${alpha(theme.palette.primary.main, 0.14)}`,
+              boxShadow: `0 18px 46px ${alpha(theme.palette.common.black, 0.07)}`,
+            }}
+          >
+            <CardContent
+              sx={{
+                p: { xs: 2.25, md: 3 },
+                background:
+                  theme.palette.mode === "dark"
+                    ? `linear-gradient(135deg, ${alpha(theme.palette.primary.dark, 0.28)}, ${alpha(theme.palette.background.paper, 0.9)})`
+                    : `linear-gradient(135deg, ${alpha(theme.palette.primary.light, 0.18)}, ${alpha(theme.palette.secondary.light, 0.1)})`,
+              }}
+            >
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: { xs: "1fr", md: "1fr auto" },
+                  gap: 3,
+                  alignItems: "center",
+                }}
               >
-                {user?.name?.[0]?.toUpperCase() || "U"}
-              </Avatar>
+                <Box sx={{ minWidth: 0 }}>
+                  <Chip
+                    icon={<AccountCircleIcon />}
+                    label={t("Centro de cuenta")}
+                    color="primary"
+                    sx={{ fontWeight: 850, mb: 2 }}
+                  />
+                  <Typography variant="h4" sx={{ fontWeight: 950, letterSpacing: 0, lineHeight: 1.08 }}>
+                    {t("Cuenta")}
+                  </Typography>
 
-              <Stack direction="row" spacing={1} flexWrap="wrap">
-                <Button variant="outlined" onClick={() => setPhotoModalOpen(true)}>
-                  {t("Cambiar foto de perfil")}
-                </Button>
+                  <Typography color="text.secondary" sx={{ mt: 1, maxWidth: 650 }}>
+                    {t("Gestiona tu perfil y selecciona tus alergias para que NutriTrace pueda avisarte.")}
+                  </Typography>
 
-                {user?.profile_image_url && (
-                  <Button
-                    variant="text"
-                    color="error"
-                    onClick={handleDeletePhoto}
-                    disabled={deletingPhoto}
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.9 }}>
+                    {t("Sesión iniciada como")} <b>{user?.name || t("Usuario")}</b>
+                    {user?.email ? ` · ${user.email}` : ""}
+                  </Typography>
+                </Box>
+
+                <Stack spacing={1.5} alignItems={{ xs: "flex-start", md: "center" }}>
+                  <Avatar
+                    src={
+                      user?.profile_image_url
+                        ? `${API_BASE}${user.profile_image_url}`
+                        : undefined
+                    }
+                    sx={{
+                      width: 104,
+                      height: 104,
+                      fontSize: 36,
+                      fontWeight: 950,
+                      border: `4px solid ${alpha(theme.palette.background.paper, 0.9)}`,
+                      boxShadow: `0 14px 32px ${alpha(theme.palette.common.black, 0.16)}`,
+                    }}
                   >
-                    {deletingPhoto ? t("Eliminando…") : t("Quitar foto")}
-                  </Button>
-                )}
-              </Stack>
-            </Stack>
+                    {user?.name?.[0]?.toUpperCase() || "U"}
+                  </Avatar>
+
+                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap justifyContent={{ md: "center" }}>
+                    <Button variant="contained" startIcon={<CameraAltIcon />} onClick={() => setPhotoModalOpen(true)}>
+                      {t("Cambiar foto")}
+                    </Button>
+
+                    {user?.profile_image_url && (
+                      <Button
+                        variant="outlined"
+                        color="error"
+                        onClick={handleDeletePhoto}
+                        disabled={deletingPhoto}
+                      >
+                        {deletingPhoto ? t("Eliminando…") : t("Quitar foto")}
+                      </Button>
+                    )}
+                  </Stack>
+                </Stack>
+              </Box>
+            </CardContent>
+          </Card>
 
             <Dialog
               open={photoModalOpen}
@@ -328,12 +377,33 @@ export default function ProfilePage() {
                 </Button>
               </DialogActions>
             </Dialog>
+
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", sm: "repeat(3, 1fr)" },
+              gap: 2,
+            }}
+          >
+            <ProfileMetric icon={<AccountCircleIcon />} label={t("Perfil")} value={user?.name || t("Usuario")} color="primary" />
+            <ProfileMetric icon={<AllergyIcon />} label={t("Alergias seleccionadas")} value={selectedCount} color="secondary" />
+            <ProfileMetric icon={<LabelIcon />} label={t("Sin marcar")} value={safeAllergens} color="success" />
           </Box>
 
           <Card sx={{ mt: 2 }}>
-            <CardContent>
+            <CardContent sx={{ p: { xs: 2.25, md: 3 } }}>
               <Stack component="form" onSubmit={handleUpdateProfile} spacing={2}>
-                <Typography variant="h6">{t("Editar perfil")}</Typography>
+                <Stack direction="row" spacing={1.25} sx={{ alignItems: "center" }}>
+                  <Avatar sx={{ bgcolor: alpha(theme.palette.primary.main, 0.12), color: "primary.main" }}>
+                    <AccountCircleIcon />
+                  </Avatar>
+                  <Box>
+                    <Typography variant="h6" sx={{ fontWeight: 950 }}>{t("Editar perfil")}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {t("Mantén actualizados tus datos personales.")}
+                    </Typography>
+                  </Box>
+                </Stack>
 
                 <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                   <TextField
@@ -370,19 +440,24 @@ export default function ProfilePage() {
           <Card>
             {loading && <LinearProgress />}
 
-            <CardContent>
+            <CardContent sx={{ p: { xs: 2.25, md: 3 } }}>
               <Stack spacing={2}>
-                <Box>
-                  <Typography variant="h6" sx={{ mb: 0.25 }}>
-                    {t("Alergias")}
-                  </Typography>
+                <Stack direction="row" spacing={1.25} sx={{ alignItems: "center" }}>
+                  <Avatar sx={{ bgcolor: alpha(theme.palette.secondary.main, 0.12), color: "secondary.main" }}>
+                    <AllergyIcon />
+                  </Avatar>
+                  <Box>
+                    <Typography variant="h6" sx={{ mb: 0.25, fontWeight: 950 }}>
+                      {t("Alergias")}
+                    </Typography>
 
-                  <Typography variant="body2" color="text.secondary">
-                    {selectedCount}{" "}
-                    {selectedCount === 1 ? t("seleccionada") : t("seleccionadas")}.{" "}
-                    {t("Toca un alérgeno para marcarlo o desmarcarlo.")}
-                  </Typography>
-                </Box>
+                    <Typography variant="body2" color="text.secondary">
+                      {selectedCount}{" "}
+                      {selectedCount === 1 ? t("seleccionada") : t("seleccionadas")}.{" "}
+                      {t("Toca un alérgeno para marcarlo o desmarcarlo.")}
+                    </Typography>
+                  </Box>
+                </Stack>
 
                 <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
                   <Button
@@ -450,8 +525,8 @@ export default function ProfilePage() {
           </Card>
 
           <Card>
-            <CardContent>
-              <Typography variant="h6">{t("Cómo se usa")}</Typography>
+            <CardContent sx={{ p: { xs: 2.25, md: 3 } }}>
+              <Typography variant="h6" sx={{ fontWeight: 950 }}>{t("Cómo se usa")}</Typography>
 
               <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                 {t("Esto ayuda a que la app pueda avisarte y filtrar alimentos incompatibles.")}
@@ -467,5 +542,25 @@ export default function ProfilePage() {
         </Stack>
       </Box>
     </AppLayout>
+  );
+}
+
+function ProfileMetric({ icon, label, value, color = "primary" }) {
+  return (
+    <Card>
+      <CardContent sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+        <Avatar sx={{ bgcolor: (theme) => alpha(theme.palette[color].main, 0.12), color: `${color}.main` }}>
+          {icon}
+        </Avatar>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant="caption" color="text.secondary">
+            {label}
+          </Typography>
+          <Typography sx={{ fontWeight: 950 }} noWrap>
+            {value}
+          </Typography>
+        </Box>
+      </CardContent>
+    </Card>
   );
 }

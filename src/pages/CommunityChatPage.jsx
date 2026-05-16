@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Avatar,
@@ -10,10 +10,15 @@ import {
   Divider,
   IconButton,
   LinearProgress,
+  Stack,
   TextField,
   Typography,
 } from "@mui/material";
+import { alpha, useTheme } from "@mui/material/styles";
+import ForumIcon from "@mui/icons-material/Forum";
+import GroupsIcon from "@mui/icons-material/Groups";
 import SendIcon from "@mui/icons-material/Send";
+import WifiIcon from "@mui/icons-material/Wifi";
 
 import AppLayout from "../components/AppLayout";
 import { useAuth } from "../context/AuthContext";
@@ -67,10 +72,17 @@ function isNearBottom(el) {
   return el.scrollHeight - el.scrollTop - el.clientHeight < 120;
 }
 
+function avatarSrc(path) {
+  if (!path) return undefined;
+  if (path.startsWith("http")) return path;
+  return `${API_BASE}${path}`;
+}
+
 export default function CommunityChatPage() {
   const { token, user } = useAuth();
 
   const { t } = useI18n();
+  const theme = useTheme();
 
   const roomId = "general";
   const [loading, setLoading] = useState(true);
@@ -78,7 +90,6 @@ export default function CommunityChatPage() {
   const [error, setError] = useState("");
   const [wsStatus, setWsStatus] = useState("connecting"); // connecting | open | closed
   const [messages, setMessages] = useState([]);
-  const [text, setText] = useState("");
 
   const wsRef = useRef(null);
   const bottomRef = useRef(null);
@@ -103,12 +114,6 @@ export default function CommunityChatPage() {
       setLoading(false);
     }
   };
-
-  function avatarSrc(path) {
-    if (!path) return undefined;
-    if (path.startsWith("http")) return path;
-    return `${API_BASE}${path}`;
-  }
 
   const loadMore = async () => {
     if (!token || !oldestId || historyLoading) return;
@@ -138,14 +143,13 @@ export default function CommunityChatPage() {
     }
   };
 
-  const sendMessage = () => {
+  const sendMessage = useCallback((text) => {
     const ws = wsRef.current;
     const payload = text.trim();
     if (!ws || ws.readyState !== WebSocket.OPEN || !payload) return;
 
     ws.send(JSON.stringify({ event: "new_message", data: { text: payload } }));
-    setText("");
-  };
+  }, []);
 
   useEffect(() => {
     loadInitial();
@@ -197,181 +201,326 @@ export default function CommunityChatPage() {
   return (
     <AppLayout>
       <Box sx={{ display: "grid", gap: 2.5 }}>
-        <Box>
-          <Typography variant="h5" sx={{ fontWeight: 950 }}>
-            {t("Comunidad")} · #{roomId}
-          </Typography>
-          <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-            {t("Chat en tiempo real para compartir progreso, recetas y tips.")}
-          </Typography>
-        </Box>
+        <Card
+          sx={{
+            overflow: "hidden",
+            border: `1px solid ${alpha(theme.palette.primary.main, 0.14)}`,
+            boxShadow: `0 18px 46px ${alpha(theme.palette.common.black, 0.07)}`,
+          }}
+        >
+          <CardContent
+            sx={{
+              p: { xs: 2.25, md: 3 },
+              background:
+                theme.palette.mode === "dark"
+                  ? `linear-gradient(135deg, ${alpha(theme.palette.primary.dark, 0.28)}, ${alpha(theme.palette.background.paper, 0.9)})`
+                  : `linear-gradient(135deg, ${alpha(theme.palette.primary.light, 0.18)}, ${alpha(theme.palette.secondary.light, 0.1)})`,
+            }}
+          >
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: { xs: "1fr", sm: "1fr auto" },
+                gap: 2,
+                alignItems: "start",
+              }}
+            >
+              <Box sx={{ minWidth: 0 }}>
+                <Chip
+                  icon={<ForumIcon />}
+                  label={t("Espacio comunitario")}
+                  color="primary"
+                  sx={{ fontWeight: 850, mb: 2 }}
+                />
+                <Typography variant="h4" sx={{ fontWeight: 950, letterSpacing: 0, lineHeight: 1.08 }}>
+                  {t("Comunidad")} · #{roomId}
+                </Typography>
+                <Typography color="text.secondary" sx={{ mt: 1, maxWidth: 650 }}>
+                  {t("Chat en tiempo real para compartir progreso, recetas y tips.")}
+                </Typography>
+              </Box>
+
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap justifyContent={{ sm: "flex-end" }}>
+                <Chip icon={<GroupsIcon />} label={`${messages.length} ${t("mensajes")}`} variant="outlined" />
+                <Chip
+                  icon={<WifiIcon />}
+                  color={wsStatus === "open" ? "success" : wsStatus === "connecting" ? "warning" : "error"}
+                  label={
+                    wsStatus === "open"
+                      ? t("conectado")
+                      : wsStatus === "connecting"
+                        ? t("conectando…")
+                        : t("desconectado")
+                  }
+                />
+              </Stack>
+            </Box>
+          </CardContent>
+        </Card>
 
         {error && <Alert severity="error">{String(error)}</Alert>}
 
-        <Card sx={{ height: { xs: "calc(100dvh - 180px)", md: "70vh" }, minHeight: 420, display: "flex", flexDirection: "column" }}>
+        <Card
+          sx={{
+            height: { xs: "calc(100dvh - 220px)", md: "70vh" },
+            minHeight: 460,
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+            border: `1px solid ${alpha(theme.palette.divider, 0.9)}`,
+          }}
+        >
           {loading && <LinearProgress />}
 
           <CardContent sx={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", p: 0 }}>
-            <Box sx={{ px: 2, py: 1.5, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <Typography sx={{ fontWeight: 900 }}>{t("Chat")}</Typography>
+            <Box
+              sx={{
+                px: { xs: 2, md: 2.5 },
+                py: 1.5,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                bgcolor: alpha(theme.palette.text.primary, 0.025),
+              }}
+            >
+              <Stack direction="row" spacing={1.25} sx={{ alignItems: "center" }}>
+                <Avatar sx={{ width: 36, height: 36, bgcolor: alpha(theme.palette.primary.main, 0.12), color: "primary.main" }}>
+                  <ForumIcon fontSize="small" />
+                </Avatar>
+                <Box>
+                  <Typography sx={{ fontWeight: 950 }}>{t("Chat")}</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    #{roomId}
+                  </Typography>
+                </Box>
+              </Stack>
               <Chip
                 size="small"
+                color={wsStatus === "open" ? "success" : wsStatus === "connecting" ? "warning" : "error"}
                 label={
                   wsStatus === "open"
-                    ? t("🟢 conectado")
+                    ? t("conectado")
                     : wsStatus === "connecting"
-                      ? t("🟡 conectando…")
-                      : t("🔴 desconectado")
+                      ? t("conectando…")
+                      : t("desconectado")
                 }
               />
             </Box>
 
             <Divider />
 
-            <Box
-              ref={listRef}
-              sx={{ flex: 1, minHeight: 0, overflowY: "auto", px: 2, py: 2, display: "grid", gap: 1.75, overscrollBehavior: "contain" }}
-            >
-              <Box sx={{ display: "flex", justifyContent: "center" }}>
-                <Button size="small" variant="text" onClick={loadMore} disabled={historyLoading || !oldestId}>
-                  {historyLoading ? t("Cargando…") : t("Cargar mensajes anteriores")}
-                </Button>
-              </Box>
-
-              {messages.map((m) => {
-                const mine = myId != null && String(m.user_id) === String(myId);
-                return (
-                  <Box key={m.id} sx={{ display: "flex", gap: 1, justifyContent: mine ? "flex-end" : "flex-start" }}>
-                    {!mine && (
-                      <Avatar
-                        src={avatarSrc(m.user_profile_image_url)}
-                        sx={{
-                          width: 36,
-                          height: 36,
-                          boxShadow: "0 4px 10px rgba(0,0,0,0.12)",
-                        }}
-                      >
-                        {initials(m.user_name)}
-                      </Avatar>
-                    )}
-
-                    <Box
-                      sx={{
-                        maxWidth: { xs: "88%", md: "72%" },
-                        px: 2,
-                        py: 1.25,
-                        borderRadius: mine
-                          ? "20px 20px 6px 20px"
-                          : "20px 20px 20px 6px",
-
-                        bgcolor: mine
-                          ? "primary.main"
-                          : "background.paper",
-
-                        color: mine
-                          ? "primary.contrastText"
-                          : "text.primary",
-
-                        border: mine
-                          ? "none"
-                          : "1px solid",
-
-                        borderColor: "divider",
-
-                        boxShadow: mine
-                          ? "0 6px 18px rgba(0,0,0,0.12)"
-                          : "0 2px 10px rgba(0,0,0,0.05)",
-
-                        backdropFilter: "blur(8px)",
-
-                        transition: "all .2s ease",
-
-                        "&:hover": {
-                          transform: "translateY(-1px)",
-                        },
-                      }}
-                    >
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          opacity: mine ? 0.75 : 0.65,
-                          fontWeight: 700,
-                          display: "block",
-                          mb: 0.4,
-                        }}
-                      >
-                        {mine ? t("Tú") : m.user_name}
-                      </Typography>
-                      <Typography
-                        sx={{
-                          whiteSpace: "pre-wrap",
-                          wordBreak: "break-word",
-                          lineHeight: 1.45,
-                          fontSize: "0.97rem",
-                        }}
-                      >{m.text}</Typography>
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          display: "block",
-                          mt: 0.75,
-                          opacity: 0.6,
-                          textAlign: "right",
-                          fontSize: "0.72rem",
-                        }}
-                      >
-                        {timeAgo(m.created_at, t)}
-                      </Typography>
-                    </Box>
-
-                    {mine && (
-                      <Avatar
-                        src={avatarSrc(user?.profile_image_url)}
-                        sx={{
-                          width: 36,
-                          height: 36,
-                          boxShadow: "0 4px 10px rgba(0,0,0,0.12)",
-                        }}
-                      >
-                        {initials(user?.name || t("Tú"))}
-                      </Avatar>
-                    )}
-                  </Box>
-                );
-              })}
-
-              <div ref={bottomRef} />
-            </Box>
+            <MessageList
+              messages={messages}
+              myId={myId}
+              user={user}
+              listRef={listRef}
+              bottomRef={bottomRef}
+              oldestId={oldestId}
+              historyLoading={historyLoading}
+              onLoadMore={loadMore}
+            />
 
             <Divider />
 
-            <Box sx={{ p: 2, display: "flex", gap: 1, alignItems: "center" }}>
-              <TextField
-                fullWidth
-                placeholder={t("Escribe un mensaje…")}
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    sendMessage();
-                  }
-                }}
-                multiline
-                maxRows={4}
-              />
-              <IconButton
-                color="primary"
-                onClick={sendMessage}
-                disabled={!text.trim() || wsStatus !== "open"}
-                title={wsStatus !== "open" ? t("Chat desconectado") : t("Enviar")}
-              >
-                <SendIcon />
-              </IconButton>
-            </Box>
+            <ChatComposer wsStatus={wsStatus} onSend={sendMessage} />
           </CardContent>
         </Card>
       </Box>
     </AppLayout>
+  );
+}
+
+const MessageList = memo(function MessageList({
+  messages,
+  myId,
+  user,
+  listRef,
+  bottomRef,
+  oldestId,
+  historyLoading,
+  onLoadMore,
+}) {
+  const { t } = useI18n();
+  const theme = useTheme();
+
+  return (
+    <Box
+      ref={listRef}
+      sx={{
+        flex: 1,
+        minHeight: 0,
+        overflowY: "auto",
+        px: { xs: 2, md: 2.5 },
+        py: 2.25,
+        display: "grid",
+        gap: 1.75,
+        overscrollBehavior: "contain",
+        bgcolor:
+          theme.palette.mode === "dark"
+            ? alpha(theme.palette.common.black, 0.12)
+            : alpha(theme.palette.primary.light, 0.035),
+      }}
+    >
+      <Box sx={{ display: "flex", justifyContent: "center" }}>
+        <Button size="small" variant="text" onClick={onLoadMore} disabled={historyLoading || !oldestId}>
+          {historyLoading ? t("Cargando…") : t("Cargar mensajes anteriores")}
+        </Button>
+      </Box>
+
+      {messages.map((m) => {
+        const mine = myId != null && String(m.user_id) === String(myId);
+        return (
+          <Box key={m.id} sx={{ display: "flex", gap: 1, justifyContent: mine ? "flex-end" : "flex-start" }}>
+            {!mine && (
+              <Avatar
+                src={avatarSrc(m.user_profile_image_url)}
+                sx={{
+                  width: 36,
+                  height: 36,
+                  boxShadow: "0 4px 10px rgba(0,0,0,0.12)",
+                }}
+              >
+                {initials(m.user_name)}
+              </Avatar>
+            )}
+
+            <Box
+              sx={{
+                maxWidth: { xs: "88%", md: "72%" },
+                px: 2,
+                py: 1.25,
+                borderRadius: mine ? "20px 20px 6px 20px" : "20px 20px 20px 6px",
+                bgcolor: mine ? "primary.main" : "background.paper",
+                color: mine ? "primary.contrastText" : "text.primary",
+                border: mine ? "none" : "1px solid",
+                borderColor: "divider",
+                boxShadow: mine
+                  ? `0 10px 24px ${alpha(theme.palette.primary.main, 0.22)}`
+                  : `0 6px 18px ${alpha(theme.palette.common.black, 0.06)}`,
+                backdropFilter: "blur(8px)",
+                transition: "all .2s ease",
+                "&:hover": {
+                  transform: "translateY(-1px)",
+                },
+              }}
+            >
+              <Typography
+                variant="caption"
+                sx={{
+                  opacity: mine ? 0.75 : 0.65,
+                  fontWeight: 700,
+                  display: "block",
+                  mb: 0.4,
+                }}
+              >
+                {mine ? t("Tú") : m.user_name}
+              </Typography>
+              <Typography
+                sx={{
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
+                  lineHeight: 1.45,
+                  fontSize: "0.97rem",
+                }}
+              >
+                {m.text}
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{
+                  display: "block",
+                  mt: 0.75,
+                  opacity: 0.6,
+                  textAlign: "right",
+                  fontSize: "0.72rem",
+                }}
+              >
+                {timeAgo(m.created_at, t)}
+              </Typography>
+            </Box>
+
+            {mine && (
+              <Avatar
+                src={avatarSrc(user?.profile_image_url)}
+                sx={{
+                  width: 36,
+                  height: 36,
+                  boxShadow: "0 4px 10px rgba(0,0,0,0.12)",
+                }}
+              >
+                {initials(user?.name || t("Tú"))}
+              </Avatar>
+            )}
+          </Box>
+        );
+      })}
+
+      <div ref={bottomRef} />
+    </Box>
+  );
+});
+
+function ChatComposer({ wsStatus, onSend }) {
+  const { t } = useI18n();
+  const theme = useTheme();
+  const [text, setText] = useState("");
+
+  const send = () => {
+    const payload = text.trim();
+    if (!payload || wsStatus !== "open") return;
+    onSend(payload);
+    setText("");
+  };
+
+  return (
+    <Box
+      sx={{
+        p: { xs: 1.5, md: 2 },
+        display: "flex",
+        gap: 1,
+        alignItems: "flex-end",
+        bgcolor: alpha(theme.palette.background.paper, 0.92),
+      }}
+    >
+      <TextField
+        fullWidth
+        placeholder={t("Escribe un mensaje…")}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            send();
+          }
+        }}
+        multiline
+        maxRows={4}
+        size="small"
+        sx={{
+          "& .MuiOutlinedInput-root": {
+            borderRadius: 3,
+            bgcolor: alpha(theme.palette.text.primary, 0.035),
+          },
+        }}
+      />
+      <IconButton
+        color="primary"
+        onClick={send}
+        disabled={!text.trim() || wsStatus !== "open"}
+        title={wsStatus !== "open" ? t("Chat desconectado") : t("Enviar")}
+        sx={{
+          width: 44,
+          height: 44,
+          bgcolor: "primary.main",
+          color: "primary.contrastText",
+          "&:hover": { bgcolor: "primary.dark" },
+          "&.Mui-disabled": {
+            bgcolor: alpha(theme.palette.text.primary, 0.08),
+          },
+        }}
+      >
+        <SendIcon />
+      </IconButton>
+    </Box>
   );
 }
