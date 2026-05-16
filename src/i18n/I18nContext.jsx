@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { translateText } from "./translations";
 
 const I18nContext = createContext(null);
@@ -11,16 +11,16 @@ export function I18nProvider({ children }) {
     localStorage.setItem("lang", next);
   };
 
-  const t = (text) => {
+  const t = useCallback((text) => {
     try {
       return translateText(text, lang);
     } catch (e) {
       console.error("Translation error:", text, e);
       return text;
     }
-  };
+  }, [lang]);
 
-  const value = useMemo(() => ({ lang, setLang, t }), [lang]);
+  const value = useMemo(() => ({ lang, setLang, t }), [lang, t]);
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }

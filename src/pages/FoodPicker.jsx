@@ -105,6 +105,7 @@ export default function FoodPicker({
               disabled={disabled}
             >
               {f.name}
+              {f.is_system ? ` (${t("App")})` : ""}
               {f.forbidden
                 ? ` (${t("No permitido")}: ${conflictsText})`
                 : ""}

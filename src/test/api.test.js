@@ -164,9 +164,17 @@ describe("api client", () => {
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:8000/community/messages?room_id=general&limit=10&before_id=25",
       expect.objectContaining({
-        headers: { Authorization: "Bearer abc" },
+        headers: expect.objectContaining({ Authorization: "Bearer abc" }),
       }),
     );
+  });
+
+  it("getCommunityMessages uses shared JSON error parsing", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      jsonResponse({ detail: "Sala no disponible" }, { status: 503 }),
+    );
+
+    await expect(getCommunityMessages({ token: "abc" })).rejects.toThrow("Sala no disponible");
   });
 
   it("listMeals includes the selected day query", async () => {
@@ -395,6 +403,26 @@ describe("api client", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(textResponse("Servidor caído", { status: 500 }));
 
     await expect(getGoal("abc")).rejects.toThrow("Servidor caído");
+  });
+
+  it("aborts requests that take too long", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(globalThis, "fetch").mockImplementation(
+      (_url, options = {}) =>
+        new Promise((_resolve, reject) => {
+          options.signal?.addEventListener("abort", () => {
+            reject(new DOMException("Aborted", "AbortError"));
+          });
+        }),
+    );
+
+    const assertion = expect(getGoal("abc")).rejects.toThrow(
+      "La petición tardó demasiado. Inténtalo de nuevo.",
+    );
+    await vi.advanceTimersByTimeAsync(15000);
+
+    await assertion;
+    vi.useRealTimers();
   });
 
   it("connectCommunitySocket builds websocket url with encoded token", () => {

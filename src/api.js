@@ -1,4 +1,5 @@
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000";
+const REQUEST_TIMEOUT_MS = 15000;
 
 function authHeaders(token) {
   const headers = {
@@ -22,15 +23,36 @@ async function parseError(res) {
   }
 }
 
-async function request(path, { method = "GET", token, headers, body } = {}) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    method,
-    headers: {
-      ...authHeaders(token),
-      ...headers,
-    },
-    body,
-  });
+async function request(
+  path,
+  { method = "GET", token, headers, body, timeoutMs = REQUEST_TIMEOUT_MS, signal } = {},
+) {
+  const controller = signal ? null : new AbortController();
+  const timeoutId =
+    controller && timeoutMs
+      ? window.setTimeout(() => controller.abort(), timeoutMs)
+      : null;
+
+  let res;
+
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      method,
+      headers: {
+        ...authHeaders(token),
+        ...headers,
+      },
+      body,
+      signal: signal || controller?.signal,
+    });
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error("La petición tardó demasiado. Inténtalo de nuevo.");
+    }
+    throw error;
+  } finally {
+    if (timeoutId) window.clearTimeout(timeoutId);
+  }
 
   if (!res.ok) {
     throw new Error(await parseError(res));
@@ -165,52 +187,29 @@ export async function upsertGoal({ token, payload }) {
 
 
 export async function listAllergens() {
-  const res = await fetch(`${API_BASE}/allergens/`, {
-    headers: authHeaders(),
-  });
-  if (!res.ok) {
-    throw new Error("No se ha podido cargar la lista de alérgenos");
-  }
-  return res.json();
+  return request("/allergens/");
 }
 
 export async function getMyAllergies(token) {
-  const res = await fetch(`${API_BASE}/profile/allergies`, {
-    headers: authHeaders(token),
-  });
-  if (!res.ok) {
-    throw new Error("No se han podido cargar tus alergias");
-  }
-  return res.json();
+  return request("/profile/allergies", { token });
 }
 
 export async function updateMyAllergies(allergenIds, token) {
-  const res = await fetch(`${API_BASE}/profile/allergies`, {
+  return request("/profile/allergies", {
     method: "PUT",
+    token,
     headers: {
       "Content-Type": "application/json",
-      ...authHeaders(token),
     },
     body: JSON.stringify({ allergen_ids: allergenIds }),
   });
-
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data.detail || "No se han podido guardar tus alergias");
-  }
-  return res.json();
 }
 
 export async function getCommunityMessages({ token, roomId = "general", limit = 50, beforeId }) {
   const params = new URLSearchParams({ room_id: roomId, limit: String(limit) });
   if (beforeId) params.set("before_id", String(beforeId));
 
-  const res = await fetch(`${API_BASE}/community/messages?${params.toString()}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  if (!res.ok) throw new Error("No se pudieron cargar mensajes");
-  return res.json();
+  return request(`/community/messages?${params.toString()}`, { token });
 }
 
 export function connectCommunitySocket({ token }) {

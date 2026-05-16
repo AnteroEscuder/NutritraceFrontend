@@ -14,6 +14,8 @@ import {
   IconButton,
   Stack,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from "@mui/material";
 import { alpha, useTheme } from "@mui/material/styles";
@@ -23,8 +25,8 @@ import EditIcon from "@mui/icons-material/Edit";
 import Inventory2Icon from "@mui/icons-material/Inventory2";
 import LocalFireDepartmentIcon from "@mui/icons-material/LocalFireDepartment";
 import NoMealsIcon from "@mui/icons-material/NoMeals";
+import PublicIcon from "@mui/icons-material/Public";
 import SearchIcon from "@mui/icons-material/Search";
-import ShieldIcon from "@mui/icons-material/Shield";
 import ConfirmDialog from "../components/ConfirmDialog";
 
 import {
@@ -69,12 +71,20 @@ export default function FoodsPage() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm());
   const [saving, setSaving] = useState(false);
+  const [sourceFilter, setSourceFilter] = useState("all");
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter((f) => (f.name || "").toLowerCase().includes(q));
-  }, [items, search]);
+    return items.filter((f) => {
+      const matchesSearch = !q || (f.name || "").toLowerCase().includes(q);
+      const matchesSource =
+        sourceFilter === "all" ||
+        (sourceFilter === "system" && f.is_system) ||
+        (sourceFilter === "own" && !f.is_system);
+
+      return matchesSearch && matchesSource;
+    });
+  }, [items, search, sourceFilter]);
 
   const foodStats = useMemo(() => {
     const withAllergens = items.filter((item) => item.allergens?.length > 0).length;
@@ -82,8 +92,9 @@ export default function FoodsPage() {
       ? Math.round(items.reduce((sum, item) => sum + toNumber(item.calories), 0) / items.length)
       : 0;
     const highProtein = items.filter((item) => toNumber(item.protein) >= 15).length;
+    const systemFoods = items.filter((item) => item.is_system).length;
 
-    return { withAllergens, avgCalories, highProtein };
+    return { withAllergens, avgCalories, highProtein, systemFoods };
   }, [items]);
 
   const load = async () => {
@@ -212,6 +223,10 @@ export default function FoodsPage() {
     }
   };
 
+  const handleSourceFilterChange = (_event, nextValue) => {
+    if (nextValue) setSourceFilter(nextValue);
+  };
+
   return (
     <Box sx={{ display: "grid", gap: 2.5 }}>
       <PageHero
@@ -219,7 +234,7 @@ export default function FoodsPage() {
         chipLabel={t("Base nutricional")}
         chipColor="secondary"
         title={t("Alimentos")}
-        subtitle={t("Crea tu base de alimentos y reutilízalos al registrar comidas.")}
+        subtitle={t("Usa alimentos de la app o crea los tuyos para registrar comidas.")}
         accent="secondary"
         secondaryAccent="primary"
         actions={
@@ -244,9 +259,9 @@ export default function FoodsPage() {
         }}
       >
         <MetricCard icon={<Inventory2Icon />} label={t("Alimentos")} value={items.length} color="primary" />
+        <MetricCard icon={<PublicIcon />} label={t("De la app")} value={foodStats.systemFoods} color="info" />
         <MetricCard icon={<SearchIcon />} label={t("Resultados")} value={filtered.length} color="secondary" />
         <MetricCard icon={<LocalFireDepartmentIcon />} label={t("Media kcal")} value={`${foodStats.avgCalories} kcal`} color="error" />
-        <MetricCard icon={<ShieldIcon />} label={t("Con alérgenos")} value={foodStats.withAllergens} color="warning" />
       </Box>
 
       <Card>
@@ -261,6 +276,33 @@ export default function FoodsPage() {
               }}
               fullWidth
             />
+
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={sourceFilter}
+              onChange={handleSourceFilterChange}
+              aria-label={t("Filtrar alimentos")}
+              sx={{
+                flexShrink: 0,
+                alignSelf: { xs: "stretch", md: "center" },
+                "& .MuiToggleButton-root": {
+                  px: { xs: 1.25, sm: 1.75 },
+                  fontWeight: 900,
+                  minWidth: { xs: 0, sm: 86 },
+                },
+              }}
+            >
+              <ToggleButton value="all" aria-label={t("Todos")}>
+                {t("Todos")}
+              </ToggleButton>
+              <ToggleButton value="system" aria-label={t("App")}>
+                {t("App")}
+              </ToggleButton>
+              <ToggleButton value="own" aria-label={t("Propios")}>
+                {t("Propios")}
+              </ToggleButton>
+            </ToggleButtonGroup>
 
             <Chip label={`${filtered.length} / ${items.length}`} variant="outlined" sx={{ alignSelf: { xs: "flex-start", md: "center" } }} />
             <Chip label={`${foodStats.highProtein} ${t("altos en proteína")}`} color="primary" variant="outlined" sx={{ alignSelf: { xs: "flex-start", md: "center" } }} />
@@ -317,6 +359,13 @@ export default function FoodsPage() {
                     </Typography>
 
                     <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
+                      <Chip
+                        size="small"
+                        icon={f.is_system ? <PublicIcon /> : <Inventory2Icon />}
+                        label={f.is_system ? t("App") : t("Propio")}
+                        color={f.is_system ? "info" : "default"}
+                        variant={f.is_system ? "filled" : "outlined"}
+                      />
                       <Chip size="small" label={`${Number(f.calories ?? 0)} kcal`} color="error" variant="outlined" />
                       <Chip size="small" label={`${Number(f.protein ?? 0)}g P`} color="primary" variant="outlined" />
                       <Chip size="small" label={`${Number(f.carbs ?? 0)}g HC`} color="secondary" variant="outlined" />
@@ -345,11 +394,19 @@ export default function FoodsPage() {
                   </Box>
 
                   <Stack direction="row" spacing={0.5}>
-                    <IconButton onClick={() => openEdit(f)} aria-label={t("Editar")}>
+                    <IconButton
+                      onClick={() => openEdit(f)}
+                      aria-label={t("Editar")}
+                      disabled={f.is_system}
+                    >
                       <EditIcon />
                     </IconButton>
 
-                    <IconButton onClick={() => setDeleteTarget(f)} aria-label={t("Borrar")}>
+                    <IconButton
+                      onClick={() => setDeleteTarget(f)}
+                      aria-label={t("Borrar")}
+                      disabled={f.is_system}
+                    >
                       <DeleteIcon />
                     </IconButton>
                   </Stack>

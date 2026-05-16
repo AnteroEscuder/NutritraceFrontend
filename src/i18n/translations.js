@@ -41,7 +41,14 @@ export const esToEn = {
   "No se pudo guardar el alimento": "Could not save the food",
   "No se pudo borrar el alimento": "Could not delete the food",
   "Crea tu base de alimentos y reutilízalos al registrar comidas.": "Create your food database and reuse foods when logging meals.",
+  "Usa alimentos de la app o crea los tuyos para registrar comidas.": "Use app foods or create your own to log meals.",
   "Base nutricional": "Nutrition database",
+  "De la app": "From app",
+  "App": "App",
+  "Propio": "Mine",
+  "Propios": "Mine",
+  "Todos": "All",
+  "Filtrar alimentos": "Filter foods",
   "Resultados": "Results",
   "Media kcal": "Average kcal",
   "Con alérgenos": "With allergens",
@@ -103,7 +110,6 @@ export const esToEn = {
   "Tú": "You",
   "Error cargando chat": "Error loading chat",
   "Error cargando más mensajes": "Error loading more messages",
-  "Cargando…": "Loading…",
   "Gestiona tu perfil y selecciona tus alergias para que NutriTrace pueda avisarte.": "Manage your profile and select your allergies so NutriTrace can warn you.",
   "Sesión iniciada como": "Logged in as",
   "Usuario": "User",
@@ -179,7 +185,6 @@ export const esToEn = {
   "No se pudieron cargar los objetivos": "Could not load goals",
   "Objetivos guardados correctamente.": "Goals saved successfully.",
   "No se pudieron guardar los objetivos": "Could not save goals",
-  "Objetivos": "Goals",
   "Plan nutricional": "Nutrition plan",
   "Proteína diaria": "Daily protein",
   "Macros configurados": "Configured macros",
@@ -191,12 +196,7 @@ export const esToEn = {
   "Calorías por macros": "Calories from macros",
   "Compara el total de macros con tu objetivo calórico.": "Compare the macro total with your calorie target.",
   "Calorías (kcal)": "Calories (kcal)",
-  "Proteína (g)": "Protein (g)",
-  "Carbohidratos (g)": "Carbohydrates (g)",
-  "Grasa (g)": "Fat (g)",
   "Recargar": "Reload",
-  "Guardando…": "Saving…",
-  "Guardar": "Save",
   "seleccionada": "selected",
   "Gluten": "Gluten",
   "Lactosa": "Lactose",
@@ -226,7 +226,6 @@ export const esToEn = {
   "No permitido": "Not allowed",
   "Este alimento contiene": "This food contains",
   "Este alimento contiene alérgenos que has marcado.": "This food contains allergens you have selected.",
-  "Alimento": "Food",
   "seleccionadas": "selected",
   "del objetivo diario": "of the daily goal",
   "objetivo superado": "goal exceeded",
@@ -276,7 +275,7 @@ export function translateText(value, lang) {
   }
 
   if (lang === "en") {
-    out = out.replace(/(\d+) seleccionada(s?)\./g, (_, n, s) => `${n} selected.`);
+    out = out.replace(/(\d+) seleccionada(s?)\./g, (_, n) => `${n} selected.`);
     out = out.replace(/Media:/g, "Average:");
     out = out.replace(/kcal hoy/g, "kcal today");
     out = out.replace(/Alimento #(\d+)/g, "Food #$1");
