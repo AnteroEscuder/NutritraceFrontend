@@ -1,6 +1,6 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import Sparkline from "./Sparkline";
+import Sparkline from "../components/Sparkline";
 
 describe("Sparkline", () => {
   it("renders one circle per value and a polyline", () => {
